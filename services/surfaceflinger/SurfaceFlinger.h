@@ -59,6 +59,10 @@
 
 #include "FrameRateHelper.h"
 
+#ifdef SAMSUNG_HDMI_SUPPORT
+#include "SecHdmiClient.h"
+#endif
+
 namespace android {
 
 // ---------------------------------------------------------------------------
@@ -572,6 +576,10 @@ private:
 #ifdef QCOM_BSP
     // Flag to disable external rotation animation feature.
     bool mDisableExtAnimation;
+#endif
+
+#if defined(SAMSUNG_HDMI_SUPPORT) && defined(SAMSUNG_EXYNOS5250)
+    SecHdmiClient *                         mHdmiClient;
 #endif
 };
 

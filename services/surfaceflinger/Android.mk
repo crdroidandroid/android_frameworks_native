@@ -110,6 +110,13 @@ LOCAL_SHARED_LIBRARIES := \
 	libgui \
 	libpowermanager
 
+ifeq ($(BOARD_USES_SAMSUNG_HDMI),true)
+        LOCAL_CFLAGS += -DSAMSUNG_HDMI_SUPPORT
+        LOCAL_SHARED_LIBRARIES += libTVOut libhdmiclient
+        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/libhdmi/libhdmiservice
+        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/include
+endif
+
 ifeq ($(TARGET_USES_QCOM_BSP), true)
     LOCAL_C_INCLUDES += $(call project-path-for,qcom-display)/libgralloc
     LOCAL_C_INCLUDES += $(call project-path-for,qcom-display)/libqdutils
