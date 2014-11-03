@@ -432,10 +432,10 @@ size_t Sensor::getFlattenedSize() const {
             sizeof(mRequiredAppOp) + sizeof(mMaxDelay) + sizeof(mFlags) + sizeof(mUuid);
 
     size_t variableSize =
-            sizeof(uint32_t) + FlattenableUtils::align<4>(mName.length()) +
-            sizeof(uint32_t) + FlattenableUtils::align<4>(mVendor.length()) +
-            sizeof(uint32_t) + FlattenableUtils::align<4>(mStringType.length()) +
-            sizeof(uint32_t) + FlattenableUtils::align<4>(mRequiredPermission.length());
+            sizeof(size_t) + FlattenableUtils::align<sizeof(size_t)>(mName.length()) +
+            sizeof(size_t) + FlattenableUtils::align<sizeof(size_t)>(mVendor.length()) +
+            sizeof(size_t) + FlattenableUtils::align<sizeof(size_t)>(mStringType.length()) +
+            sizeof(size_t) + FlattenableUtils::align<sizeof(size_t)>(mRequiredPermission.length());
 
     return fixedSize + variableSize;
 }
