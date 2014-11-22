@@ -300,7 +300,9 @@ int FramebufferNativeWindow::queueBuffer(ANativeWindow* window,
                                     0, 0, 0,
                                     0, 0,
                                     android::SecHdmiClient::HDMI_MODE_UI,
-                                    0);
+                                    0, 0, 0,
+                                    0, 0, 0,
+                                    0, 0, 0);
 #elif defined(SAMSUNG_EXYNOS5250)
     if (self->mHdmiClient != NULL)
         self->mHdmiClient->blit2Hdmi(buffer->width, buffer->height,
