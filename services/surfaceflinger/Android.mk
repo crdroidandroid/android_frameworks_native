@@ -113,8 +113,8 @@ LOCAL_SHARED_LIBRARIES := \
 ifeq ($(BOARD_USES_SAMSUNG_HDMI),true)
         LOCAL_CFLAGS += -DSAMSUNG_HDMI_SUPPORT
         LOCAL_SHARED_LIBRARIES += libTVOut libhdmiclient
-        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/libhdmi/libhdmiservice
-        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/include
+        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/hal/libhdmi/libhdmiservice
+        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/hal/include
 endif
 
 ifeq ($(TARGET_USES_QCOM_BSP), true)
