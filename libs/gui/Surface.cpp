@@ -20,6 +20,8 @@
 
 #include <android/native_window.h>
 
+#include <sync/sync.h>
+
 #include <binder/Parcel.h>
 
 #include <utils/Log.h>
@@ -318,6 +320,7 @@ int Surface::queueBuffer(android_native_buffer_t* buffer, int fenceFd) {
     Mutex::Autolock lock(mMutex);
     int64_t timestamp;
     bool isAutoTimestamp = false;
+    sp<Fence> fence(fenceFd >= 0 ? new Fence(fenceFd) : Fence::NO_FENCE);
     if (mTimestamp == NATIVE_WINDOW_TIMESTAMP_AUTO) {
         timestamp = systemTime(SYSTEM_TIME_MONOTONIC);
         isAutoTimestamp = true;
@@ -345,7 +348,6 @@ int Surface::queueBuffer(android_native_buffer_t* buffer, int fenceFd) {
     }
 #endif
 
-    sp<Fence> fence(fenceFd >= 0 ? new Fence(fenceFd) : Fence::NO_FENCE);
     IGraphicBufferProducer::QueueBufferOutput output;
     IGraphicBufferProducer::QueueBufferInput input(timestamp, isAutoTimestamp, crop,
 #ifdef QCOM_BSP
@@ -937,8 +939,14 @@ status_t Surface::lock(
                     oldDirtyRegion.orSelf(mSlots[i].dirtyRegion);
             }
             const Region copyback(oldDirtyRegion.subtract(newDirtyRegion));
-            if (!copyback.isEmpty())
+            if (!copyback.isEmpty()) {
+                if (fenceFd >= 0) {
+                    sync_wait(fenceFd, -1);
+                    close(fenceFd);
+                    fenceFd = -1;
+                }
                 copyBlt(backBuffer, frontBuffer, copyback);
+            }
         } else {
             // if we can't copy-back anything, modify the user's dirty
             // region to make sure they redraw the whole buffer
