@@ -1081,14 +1081,18 @@ public:
         }
     }
     virtual void setIsCursorLayerHint(bool isCursor) {
+#ifndef EXYNOS4_HWC_1_1
         if (hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_4)) {
+#endif
             if (isCursor) {
                 getLayer()->flags |= HWC_IS_CURSOR_LAYER;
             }
             else {
                 getLayer()->flags &= ~HWC_IS_CURSOR_LAYER;
             }
+#ifndef EXYNOS4_HWC_1_1
         }
+#endif
     }
     virtual void setAnimating(bool animating) {
         if (animating) {

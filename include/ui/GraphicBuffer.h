@@ -67,6 +67,9 @@ public:
         USAGE_HW_MASK           = GRALLOC_USAGE_HW_MASK,
 
         USAGE_CURSOR            = GRALLOC_USAGE_CURSOR,
+#ifdef EXYNOS4_HWC_1_1
+        USAGE_EXTERNAL_DISP     = GRALLOC_USAGE_EXTERNAL_DISP,
+#endif
     };
 
     GraphicBuffer();
