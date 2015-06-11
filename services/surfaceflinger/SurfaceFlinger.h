@@ -144,7 +144,7 @@ public:
     }
 
 #ifdef SWAP_BUFFERS_WORKAROUND
-    int getNumVisibleRegions();
+    int hasVisibleRegions();
 #endif
 #ifdef QCOM_BSP
     // Extended Mode - No video on primary and it will be shown full
