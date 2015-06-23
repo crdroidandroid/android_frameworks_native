@@ -39,6 +39,10 @@ LOCAL_SRC_FILES := \
     RenderEngine/RenderEngine.cpp \
     RenderEngine/Texture.cpp \
     RenderEngine/GLES20RenderEngine.cpp \
+    DisplayUtils.cpp \
+    ExSurfaceFlinger/ExLayer.cpp \
+    ExSurfaceFlinger/ExSurfaceFlinger.cpp \
+    ExSurfaceFlinger/ExVirtualDisplaySurface.cpp
 
 LOCAL_MODULE := libsurfaceflinger
 LOCAL_C_INCLUDES := \
@@ -48,6 +52,11 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_CFLAGS := -DLOG_TAG=\"SurfaceFlinger\"
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
+
+ifeq ($(TARGET_USES_QCOM_DISPLAY_BSP), true)
+LOCAL_CFLAGS += -DQTI_BSP
+LOCAL_HEADER_LIBRARIES := display_headers
+endif
 
 ifeq ($(TARGET_USES_HWC2),true)
     LOCAL_CFLAGS += -DUSE_HWC2

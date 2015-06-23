@@ -156,6 +156,7 @@ public:
     // This also allows devices with wide-color displays that don't
     // want to support color management to disable color management.
     static bool hasWideColorDisplay;
+    friend class ExSurfaceFlinger;
 
     static char const* getServiceName() ANDROID_API {
         return "SurfaceFlinger";
@@ -320,6 +321,37 @@ private:
     virtual void onHotplugReceived(HWComposer* composer, int disp, bool connected);
     virtual void onInvalidateReceived(HWComposer* composer);
 
+    /* ------------------------------------------------------------------------
+     * Extensions
+     */
+    virtual void updateExtendedMode() { }
+
+    virtual void getIndexLOI(size_t /*dpy*/,
+                     bool& /*bIgnoreLayers*/,
+                     String8& /*nameLOI*/) { }
+
+    virtual bool updateLayerVisibleNonTransparentRegion(
+                     const int& dpy, const sp<Layer>& layer,
+                     bool& bIgnoreLayers, String8& nameLOI,
+                     uint32_t layerStack);
+
+    virtual void delayDPTransactionIfNeeded(
+                     const Vector<DisplayState>& /*displays*/) { }
+
+    virtual bool canDrawLayerinScreenShot(
+                     const sp<const DisplayDevice>& hw,
+                     const sp<Layer>& layer);
+
+    virtual void isfreezeSurfacePresent(
+                     bool& freezeSurfacePresent,
+                     const sp<const DisplayDevice>& /*hw*/,
+                     const int32_t& /*id*/) { freezeSurfacePresent = false; }
+
+    virtual void setOrientationEventControl(
+                     bool& /*freezeSurfacePresent*/,
+                     const int32_t& /*id*/) { }
+
+    virtual void updateVisibleRegionsDirty() { }
     /* ------------------------------------------------------------------------
      * Message handling
      */
@@ -497,8 +529,9 @@ private:
      * Compositing
      */
     void invalidateHwcGeometry();
-    void computeVisibleRegions(uint32_t layerStack,
-            Region& dirtyRegion, Region& opaqueRegion);
+    void computeVisibleRegions(size_t dpy,
+            uint32_t layerStack, Region& dirtyRegion,
+            Region& opaqueRegion);
 
     void preComposition(nsecs_t refreshStartTime);
     void postComposition(nsecs_t refreshStartTime);

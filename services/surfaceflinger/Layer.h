@@ -74,6 +74,7 @@ class Layer : public SurfaceFlingerConsumer::ContentsChangedListener {
     static int32_t sSequence;
 
 public:
+    friend class ExLayer;
     mutable bool contentDirty;
     // regions below are in window-manager space
     Region visibleRegion;
@@ -423,6 +424,24 @@ public:
     // the current orientation of the display device.
     void updateTransformHint(const sp<const DisplayDevice>& hw) const;
 
+    /* ------------------------------------------------------------------------
+     * Extensions
+     */
+    virtual bool isExtOnly() const { return false; }
+    virtual bool isIntOnly() const { return false; }
+    virtual bool isSecureDisplay() const { return false; }
+    virtual bool isYuvLayer() const { return false; }
+#ifndef USE_HWC2
+    virtual void setPosition(const sp<const DisplayDevice>& /*hw*/,
+                             HWComposer::HWCLayerInterface& /*layer*/,
+                             const State& /*state*/) { }
+#else
+    virtual void setPosition(const sp<const DisplayDevice>& /*hw*/,
+                             const State& /*state*/) { }
+    virtual void setLayerAnimating(int32_t /*hwcId*/) { }
+#endif
+    virtual bool canAllowGPUForProtected() const { return false; }
+
     /*
      * returns the rectangle that crops the content of the layer and scales it
      * to the layer's size.
@@ -557,6 +576,7 @@ protected:
         }
     };
 
+    Rect reduce(const Rect& win, const Region& exclude) const;
 
     virtual void onFirstRef();
 
