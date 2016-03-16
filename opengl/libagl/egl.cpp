@@ -431,6 +431,10 @@ void egl_window_surface_v2_t::disconnect()
         previousBuffer->common.decRef(&previousBuffer->common); 
         previousBuffer = 0;
     }
+
+    if (depth.format && depth.data) {
+        free(depth.data); //free the depth buffer allocated in connect()
+    }
 }
 
 status_t egl_window_surface_v2_t::lock(
