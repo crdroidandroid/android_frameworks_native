@@ -59,7 +59,7 @@ using namespace android;
             :                                                   \
             : [tls] "J"(TLS_SLOT_OPENGL_API*4),                 \
               [api] "J"(__builtin_offsetof(gl_hooks_t, gl._api))    \
-            : "r12"                                             \
+            : "r0", "r1", "r2", "r3", "r12"                     \
             );
 
 #elif defined(__aarch64__)
@@ -77,7 +77,7 @@ using namespace android;
             :                                                       \
             : [tls] "i" (TLS_SLOT_OPENGL_API * sizeof(void*)),      \
               [api] "i" (__builtin_offsetof(gl_hooks_t, gl._api))   \
-            : "x16"                                                 \
+            : "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x16" \
         );
 
 #elif defined(__i386__)
@@ -115,7 +115,9 @@ using namespace android;
             : [fn] "=r" (fn)                                        \
             : [tls] "i" (TLS_SLOT_OPENGL_API*sizeof(void*)),        \
               [api] "i" (__builtin_offsetof(gl_hooks_t, gl._api))   \
-            : "cc"                                                  \
+            : "cc", "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9",   \
+              "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5", \
+              "%xmm6", "%xmm7"                                      \
             );
 
 #elif defined(__mips64)
@@ -148,7 +150,7 @@ using namespace android;
           [v0] "=&r"(_v0)                                     \
         : [OPENGL_API] "I"(TLS_SLOT_OPENGL_API*sizeof(void*)),\
           [API] "I"(__builtin_offsetof(gl_hooks_t, gl._api))  \
-        :                                                     \
+        : "$4", "$5", "$6", "$7", "$8", "$9", "$10", "$11"    \
         );
 
 #elif defined(__mips__)
@@ -182,7 +184,7 @@ using namespace android;
               [v0] "=&r"(_v0)                                    \
             : [OPENGL_API] "I"(TLS_SLOT_OPENGL_API*4),           \
               [API] "I"(__builtin_offsetof(gl_hooks_t, gl._api)) \
-            :                                                    \
+            : "$4", "$5", "$6", "$7"                             \
             );
 
 #endif
