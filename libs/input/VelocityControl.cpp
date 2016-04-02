@@ -18,7 +18,7 @@
 //#define LOG_NDEBUG 0
 
 // Log debug messages about acceleration.
-#define DEBUG_ACCELERATION 0
+// #define DEBUG_ACCELERATION 0
 
 #include <math.h>
 #include <limits.h>
