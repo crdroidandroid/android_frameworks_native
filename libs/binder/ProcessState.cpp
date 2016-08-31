@@ -42,7 +42,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define BINDER_VM_SIZE ((1*1024*1024) - (4096 *2))
+// Linux kernel will add one guard page after each vm area(if VM_NO_GUARD is not
+// defined), so substract one page to make sure kernel binder vm size is is 1MB aligned.
+// This will benifit the next binder mmap which may be the next vm alloc in kernel.
+#define BINDER_VM_SIZE ((1*1024*1024) - sysconf(_SC_PAGE_SIZE))
 #define DEFAULT_MAX_BINDER_THREADS 15
 
 // -------------------------------------------------------------------------
