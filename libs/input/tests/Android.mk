@@ -31,7 +31,7 @@ include $(CLEAR_VARS)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_SRC_FILES := StructLayout_test.cpp
 LOCAL_MODULE := StructLayout_test
-LOCAL_CFLAGS := -std=c++11 -O0
+LOCAL_CFLAGS := -O0
 LOCAL_MULTILIB := both
 include $(BUILD_STATIC_LIBRARY)
 

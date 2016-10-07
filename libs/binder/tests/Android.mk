@@ -38,5 +38,5 @@ LOCAL_MODULE := binderThroughputTest
 LOCAL_SRC_FILES := binderThroughputTest.cpp
 LOCAL_SHARED_LIBRARIES := libbinder libutils
 LOCAL_CLANG := true
-LOCAL_CFLAGS += -g -Wall -Werror -std=c++11 -Wno-missing-field-initializers -Wno-sign-compare -O3
+LOCAL_CFLAGS += -g -Wall -Werror -Wno-missing-field-initializers -Wno-sign-compare -O3
 include $(BUILD_NATIVE_TEST)
