@@ -51,6 +51,7 @@ public:
     virtual bool isIntOnly() const;
     virtual bool isSecureDisplay() const;
     virtual bool isYuvLayer() const;
+    virtual bool isHDRLayer() const;
 #ifndef USE_HWC2
     virtual void setPosition(const sp<const DisplayDevice>& hw,
                              HWComposer::HWCLayerInterface& layer, const State& state);
