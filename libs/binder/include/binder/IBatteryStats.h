@@ -63,17 +63,6 @@ public:
 
 // ----------------------------------------------------------------------
 
-class BnBatteryStats : public BnInterface<IBatteryStats>
-{
-public:
-    virtual status_t    onTransact( uint32_t code,
-                                    const Parcel& data,
-                                    Parcel* reply,
-                                    uint32_t flags = 0);
-};
-
-// ----------------------------------------------------------------------
-
 }; // namespace android
 
 #endif // ANDROID_IBATTERYSTATS_H
