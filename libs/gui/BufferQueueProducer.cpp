@@ -1271,6 +1271,13 @@ void BufferQueueProducer::allocateBuffers(uint32_t width, uint32_t height,
             allocFormat = format != 0 ? format : mCore->mDefaultBufferFormat;
             allocUsage = usage | mCore->mConsumerUsageBits;
 
+            // If mTransformHint is set, the EGL implementation will request buffers
+            // with pre-rotated size. So here we need to swap the width and height
+            // to avoid the buffers being freed and reallocated when dequeueBuffer()
+            // gets called later.
+            if (mCore->mTransformHint != 0) {
+                std::swap(allocWidth, allocHeight);
+            }
             mCore->mIsAllocating = true;
         } // Autolock scope
 
@@ -1295,6 +1302,9 @@ void BufferQueueProducer::allocateBuffers(uint32_t width, uint32_t height,
             Mutex::Autolock lock(mCore->mMutex);
             uint32_t checkWidth = width > 0 ? width : mCore->mDefaultWidth;
             uint32_t checkHeight = height > 0 ? height : mCore->mDefaultHeight;
+            if (mCore->mTransformHint != 0) {
+                std::swap(checkWidth, checkHeight);
+            }
             PixelFormat checkFormat = format != 0 ?
                     format : mCore->mDefaultBufferFormat;
             uint32_t checkUsage = usage | mCore->mConsumerUsageBits;
