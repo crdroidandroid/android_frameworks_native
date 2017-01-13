@@ -63,6 +63,7 @@ protected:
                      bool& freezeSurfacePresent,
                      const int32_t& id);
     virtual void updateVisibleRegionsDirty();
+    virtual bool IsHWCDisabled() { return mDebugDisableHWC; }
     virtual ~ExSurfaceFlinger();
 
     /* Extended Mode
@@ -74,6 +75,9 @@ protected:
     bool mDebugLogs;
     bool isDebug() { return mDebugLogs; }
     bool mDisableExtAnimation;
+
+    static bool sAllowHDRFallBack;
+    static bool AllowHDRFallBack() { return sAllowHDRFallBack; }
 
 #ifdef DEBUG_CONT_DUMPSYS
     virtual status_t dump(int fd, const Vector<String16>& args);

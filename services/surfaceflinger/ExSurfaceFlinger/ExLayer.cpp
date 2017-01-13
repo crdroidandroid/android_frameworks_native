@@ -175,7 +175,12 @@ bool ExLayer::isHDRLayer() const {
                     if (colorData.colorPrimaries == ColorPrimaries_BT2020 &&
                         (colorData.transfer == Transfer_SMPTE_ST2084 ||
                         colorData.transfer == Transfer_HLG)) {
+                        if (ExSurfaceFlinger::AllowHDRFallBack() ||
+                            mFlinger->IsHWCDisabled()) {
+                            return false;
+                        } else {
                             return true;
+                        }
                     }
                 }
             }

@@ -189,6 +189,8 @@ public:
         return getDefaultDisplayDeviceLocked();
     }
 
+    virtual bool IsHWCDisabled() { return false; }
+
     // utility function to delete a texture on the main thread
     void deleteTextureAsync(uint32_t texture);
 
