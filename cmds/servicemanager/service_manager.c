@@ -373,7 +373,7 @@ int main()
 {
     struct binder_state *bs;
 
-    bs = binder_open(128*1024);
+    bs = binder_open(128*1024 - sysconf(_SC_PAGE_SIZE));
     if (!bs) {
         ALOGE("failed to open binder driver\n");
         return -1;
