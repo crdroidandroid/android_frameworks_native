@@ -458,15 +458,6 @@ status_t IPCThreadState::getAndExecuteCommand()
         }
         pthread_cond_broadcast(&mProcess->mThreadCountDecrement);
         pthread_mutex_unlock(&mProcess->mThreadCountLock);
-
-        // After executing the command, ensure that the thread is returned to the
-        // foreground cgroup before rejoining the pool.  The driver takes care of
-        // restoring the priority, but doesn't do anything with cgroups so we
-        // need to take care of that here in userspace.  Note that we do make
-        // sure to go in the foreground after executing a transaction, but
-        // there are other callbacks into user code that could have changed
-        // our group so we want to make absolutely sure it is put back.
-        set_sched_policy(mMyThreadId, SP_FOREGROUND);
     }
 
     return result;
@@ -501,12 +492,6 @@ void IPCThreadState::joinThreadPool(bool isMain)
     LOG_THREADPOOL("**** THREAD %p (PID %d) IS JOINING THE THREAD POOL\n", (void*)pthread_self(), getpid());
 
     mOut.writeInt32(isMain ? BC_ENTER_LOOPER : BC_REGISTER_LOOPER);
-    
-    // This thread may have been spawned by a thread that was in the background
-    // scheduling group, so first we will make sure it is in the foreground
-    // one to avoid performing an initial transaction in the background.
-    set_sched_policy(mMyThreadId, SP_FOREGROUND);
-        
     status_t result;
     do {
         processPendingDerefs();
@@ -707,7 +692,6 @@ status_t IPCThreadState::clearDeathNotification(int32_t handle, BpBinder* proxy)
 
 IPCThreadState::IPCThreadState()
     : mProcess(ProcessState::self()),
-      mMyThreadId(gettid()),
       mStrictModePolicy(0),
       mLastTransactionBinderFlags(0)
 {
@@ -1068,26 +1052,6 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
             mCallingPid = tr.sender_pid;
             mCallingUid = tr.sender_euid;
             mLastTransactionBinderFlags = tr.flags;
-
-            int curPrio = getpriority(PRIO_PROCESS, mMyThreadId);
-            if (gDisableBackgroundScheduling) {
-                if (curPrio > ANDROID_PRIORITY_NORMAL) {
-                    // We have inherited a reduced priority from the caller, but do not
-                    // want to run in that state in this process.  The driver set our
-                    // priority already (though not our scheduling class), so bounce
-                    // it back to the default before invoking the transaction.
-                    setpriority(PRIO_PROCESS, mMyThreadId, ANDROID_PRIORITY_NORMAL);
-                }
-            } else {
-                if (curPrio >= ANDROID_PRIORITY_BACKGROUND) {
-                    // We want to use the inherited priority from the caller.
-                    // Ensure this thread is in the background scheduling class,
-                    // since the driver won't modify scheduling classes for us.
-                    // The scheduling group is reset to default by the caller
-                    // once this method returns after the transaction is complete.
-                    set_sched_policy(mMyThreadId, SP_BACKGROUND);
-                }
-            }
 
             //ALOGI(">>>> TRANSACT from pid %d uid %d\n", mCallingPid, mCallingUid);
 
