@@ -1430,7 +1430,7 @@ void SurfaceFlinger::postFramebuffer()
             mHwc->commit(hwcId);
         }
         displayDevice->onSwapBuffersCompleted();
-        if (displayId == 0) {
+        if (hwcId == 0) {
             // Make the default display current because the VirtualDisplayDevice
             // code cannot deal with dequeueBuffer() being called outside of the
             // composition loop; however the code below can call glFlush() which
