@@ -101,4 +101,19 @@ void DisplayUtils::initVDSInstance(HWComposer* hwc, int32_t hwcDisplayId,
     }
 }
 
+bool DisplayUtils::canAllocateHwcDisplayIdForVDS(int usage) {
+    // on AOSP builds with QTI_BSP disabled, we should allocate hwc display id for virtual display.
+    int flag_mask = 0xffffffff;
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.vds.allow_hwc", value, "0");
+    int allowHwcForVDS = atoi(value);
+
+#if QTI_BSP
+    // Reserve hardware acceleration for WFD use-case
+    flag_mask = GRALLOC_USAGE_PRIVATE_WFD;
+#endif
+
+    return (allowHwcForVDS || (usage & flag_mask));
+}
+
 }; // namespace android

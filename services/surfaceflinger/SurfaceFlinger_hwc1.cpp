@@ -1730,6 +1730,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                         if (state.surface != NULL) {
 
                             int width = 0;
+                            DisplayUtils* displayUtils = DisplayUtils::getInstance();
                             int status = state.surface->query(
                                     NATIVE_WINDOW_WIDTH, &width);
                             ALOGE_IF(status != NO_ERROR,
@@ -1739,19 +1740,23 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                                     NATIVE_WINDOW_HEIGHT, &height);
                             ALOGE_IF(status != NO_ERROR,
                                     "Unable to query height (%d)", status);
-                            if (mUseHwcVirtualDisplays &&
-                                    (SurfaceFlinger::maxVirtualDisplaySize == 0 ||
-                                    (width <= static_cast<int>(SurfaceFlinger::maxVirtualDisplaySize) &&
-                                     height <= static_cast<int>(SurfaceFlinger::maxVirtualDisplaySize)))) {
-                                hwcDisplayId = allocateHwcDisplayId(state.type);
+                            if (MAX_VIRTUAL_DISPLAY_DIMENSION == 0 ||
+                                (width <= MAX_VIRTUAL_DISPLAY_DIMENSION &&
+                                 height <= MAX_VIRTUAL_DISPLAY_DIMENSION)) {
+                                int usage = 0;
+                                status = state.surface->query(
+                                    NATIVE_WINDOW_CONSUMER_USAGE_BITS, &usage);
+                                ALOGW_IF(status != NO_ERROR,
+                                    "Unable to query usage (%d)", status);
+                                if ( (status == NO_ERROR) &&
+                                      displayUtils->canAllocateHwcDisplayIdForVDS(usage)) {
+                                    hwcDisplayId = allocateHwcDisplayId(state.type);
+                                }
                             }
 
-                            DisplayUtils::getInstance()->initVDSInstance(mHwc,
-                                                   hwcDisplayId, state.surface,
-                                                   dispSurface, producer,
-                                                   bqProducer, bqConsumer,
-                                                   state.displayName,
-                                                   state.isSecure);
+                            displayUtils->initVDSInstance(mHwc, hwcDisplayId, state.surface,
+                                    dispSurface, producer, bqProducer, bqConsumer,
+                                    state.displayName, state.isSecure);
                         }
                     } else {
                         ALOGE_IF(state.surface!=NULL,
@@ -1767,7 +1772,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                     }
 
                     const wp<IBinder>& display(curr.keyAt(i));
-                    if (dispSurface != NULL) {
+                    if (dispSurface != NULL && producer != NULL) {
                         sp<DisplayDevice> hw = new DisplayDevice(this,
                                 state.type, hwcDisplayId,
                                 mHwc->getFormat(hwcDisplayId), state.isSecure,

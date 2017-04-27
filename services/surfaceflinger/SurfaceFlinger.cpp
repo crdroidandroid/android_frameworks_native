@@ -2059,6 +2059,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                             // Allow VR composer to use virtual displays.
                             if (mUseHwcVirtualDisplays || mHwc == mVrHwc) {
                                 int width = 0;
+                                DisplayUtils* displayUtils = DisplayUtils::getInstance();
                                 int status = state.surface->query(
                                         NATIVE_WINDOW_WIDTH, &width);
                                 ALOGE_IF(status != NO_ERROR,
@@ -2075,19 +2076,27 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                                         "Unable to query format (%d)", status);
                                 auto format = static_cast<android_pixel_format_t>(
                                         intFormat);
+                                if (MAX_VIRTUAL_DISPLAY_DIMENSION == 0 ||
+                                    (width <= MAX_VIRTUAL_DISPLAY_DIMENSION &&
+                                     height <= MAX_VIRTUAL_DISPLAY_DIMENSION)) {
+                                    int usage = 0;
+                                    status = state.surface->query(
+                                        NATIVE_WINDOW_CONSUMER_USAGE_BITS, &usage);
+                                    ALOGW_IF(status != NO_ERROR,
+                                        "Unable to query usage (%d)", status);
+                                    if ( (status == NO_ERROR) &&
+                                          displayUtils->canAllocateHwcDisplayIdForVDS(usage)) {
+                                        mHwc->allocateVirtualDisplay(width, height, &format,
+                                                       &hwcId);
+                                     }
+                                }
 
-                                mHwc->allocateVirtualDisplay(width, height, &format,
-                                        &hwcId);
+                                // TODO: Plumb requested format back up to consumer
+
+                                displayUtils->initVDSInstance(mHwc, hwcId, state.surface,
+                                     dispSurface, producer, bqProducer, bqConsumer,
+                                     state.displayName, state.isSecure);
                             }
-
-                            // TODO: Plumb requested format back up to consumer
-
-                            DisplayUtils::getInstance()->initVDSInstance(mHwc,
-                                                   hwcId, state.surface,
-                                                   dispSurface, producer,
-                                                   bqProducer, bqConsumer,
-                                                   state.displayName,
-                                                   state.isSecure);
                         }
                     } else {
                         ALOGE_IF(state.surface!=NULL,
@@ -2101,7 +2110,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                     }
 
                     const wp<IBinder>& display(curr.keyAt(i));
-                    if (dispSurface != NULL) {
+                    if (dispSurface != NULL && producer != NULL) {
                         sp<DisplayDevice> hw =
                                 new DisplayDevice(this, state.type, hwcId, state.isSecure, display,
                                                   dispSurface, producer,
