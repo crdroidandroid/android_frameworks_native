@@ -323,7 +323,7 @@ status_t DisplayDevice::prepareFrame(const HWComposer& hwc) const {
 
 void DisplayDevice::swapBuffers(HWComposer& hwc) const {
 #ifdef USE_HWC2
-    if (hwc.hasClientComposition(mHwcDisplayId)) {
+    if (hwc.hasClientComposition(mHwcDisplayId) || hwc.hasFlipFBTRequest(mHwcDisplayId)) {
 #else
     // We need to call eglSwapBuffers() if:
     //  (1) we don't have a hardware composer, or
