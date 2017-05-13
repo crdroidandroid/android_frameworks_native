@@ -835,8 +835,10 @@ void SurfaceFlinger::setActiveConfigInternal(const sp<DisplayDevice>& hw, int mo
         return;
     }
 
-    hw->setActiveConfig(mode);
-    getHwComposer().setActiveConfig(type, mode);
+    status_t status = getHwComposer().setActiveConfig(type, mode);
+    if (status == NO_ERROR) {
+        hw->setActiveConfig(mode);
+    }
 }
 
 status_t SurfaceFlinger::setActiveConfig(const sp<IBinder>& display, int mode) {
@@ -1203,6 +1205,14 @@ void SurfaceFlinger::createDefaultDisplayDevice() {
     sp<DisplayDevice> hw = new DisplayDevice(this, DisplayDevice::DISPLAY_PRIMARY, type, isSecure,
                                              token, fbs, producer, mRenderEngine->getEGLConfig(),
                                              hasWideColorModes && hasWideColorDisplay);
+
+    // When a non-virtual display device is added at boot time,
+    // update the active config by querying HWC otherwise the
+    // default config (config 0) will be used.
+    int activeConfig = mHwc->getActiveConfig(type)->getId();
+    if (activeConfig >= 0) {
+        hw->setActiveConfig(activeConfig);
+    }
     mDisplays.add(token, hw);
     android_color_mode defaultColorMode = HAL_COLOR_MODE_NATIVE;
     if (hasWideColorModes && hasWideColorDisplay) {
@@ -2129,6 +2139,16 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                         hw->setProjection(state.orientation,
                                 state.viewport, state.frame);
                         hw->setDisplayName(state.displayName);
+                        // When a new display device is added update the active
+                        // config by querying HWC otherwise the default config
+                        // (config 0) will be used.
+                        if (hwcId >= DisplayDevice::DISPLAY_PRIMARY &&
+                                hwcId < DisplayDevice::NUM_BUILTIN_DISPLAY_TYPES) {
+                            int activeConfig = mHwc->getActiveConfig(hwcId)->getId();
+                            if (activeConfig >= 0) {
+                                hw->setActiveConfig(activeConfig);
+                            }
+                        }
                         mDisplays.add(display, hw);
                         if (!state.isVirtualDisplay()) {
                             mEventThread->onHotplugReceived(state.type, true);
