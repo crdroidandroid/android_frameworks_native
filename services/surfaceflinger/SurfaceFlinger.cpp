@@ -1619,6 +1619,10 @@ void SurfaceFlinger::postComposition(nsecs_t refreshStartTime)
         mAnimFrameTracker.advanceFrame();
     }
 
+#ifdef DEBUG_CONT_DUMPSYS
+    dumpDrawCycle(false);
+#endif
+
     if (hw->getPowerMode() == HWC_POWER_MODE_OFF) {
         return;
     }
@@ -1829,6 +1833,9 @@ void SurfaceFlinger::setUpHWComposer() {
 
     mPreviousColorMatrix = colorMatrix;
 
+#ifdef DEBUG_CONT_DUMPSYS
+    dumpDrawCycle(true);
+#endif
     for (size_t displayId = 0; displayId < mDisplays.size(); ++displayId) {
         auto& displayDevice = mDisplays[displayId];
         if (!displayDevice->isDisplayOn()) {

@@ -1339,6 +1339,10 @@ void SurfaceFlinger::postComposition(nsecs_t refreshStartTime)
         mAnimFrameTracker.advanceFrame();
     }
 
+#ifdef DEBUG_CONT_DUMPSYS
+    dumpDrawCycle(false);
+#endif
+
     if (hw->getPowerMode() == HWC_POWER_MODE_OFF) {
         return;
     }
@@ -1495,6 +1499,10 @@ void SurfaceFlinger::setUpHWComposer() {
                 }
             }
         }
+
+#ifdef DEBUG_CONT_DUMPSYS
+        dumpDrawCycle(false);
+#endif
 
         status_t err = hwc.prepare();
         ALOGE_IF(err, "HWComposer::prepare failed (%s)", strerror(-err));

@@ -592,6 +592,9 @@ private:
     void logFrameStats();
 
     void dumpStaticScreenStats(String8& result) const;
+#ifdef DEBUG_CONT_DUMPSYS
+    virtual void dumpDrawCycle(bool /* prePrepare */ ) { }
+#endif
     // Not const because each Layer needs to query Fences and cache timestamps.
     void dumpFrameEventsLocked(String8& result);
 
