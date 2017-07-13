@@ -507,6 +507,10 @@ int delete_dir_contents(const char *pathname,
             res = -1;
         }
     }
+    std::string path(pathname);
+    write_path_inode(path, "cache", kXattrInodeCache);
+    write_path_inode(path, "code_cache", kXattrInodeCodeCache);
+
     return res;
 }
 
@@ -662,6 +666,15 @@ int write_path_inode(const std::string& parent, const char* name, const char* in
     auto path = StringPrintf("%s/%s", parent.c_str(), name);
 
     if (get_path_inode(path, &inode) != 0) {
+        if (getxattr(parent.c_str(), inode_xattr, &inode_raw,
+                     sizeof(inode_raw)) == sizeof(inode_raw)) {
+            // Reset path inode to 0, prevent PMS get an wrong inode.
+            inode_raw = 0;
+            if (setxattr(parent.c_str(), inode_xattr, &inode_raw, sizeof(inode_raw), 0) != 0 &&
+                errno != EOPNOTSUPP) {
+                PLOG(ERROR) << "Failed to reset xattr " << inode_xattr << " at " << parent;
+            }
+        }
         // Path probably doesn't exist yet; ignore
         return 0;
     }
@@ -678,7 +691,8 @@ int write_path_inode(const std::string& parent, const char* name, const char* in
     }
 
     inode_raw = inode;
-    if (setxattr(parent.c_str(), inode_xattr, &inode_raw, sizeof(inode_raw), 0) != 0 && errno != EOPNOTSUPP) {
+    if (setxattr(parent.c_str(), inode_xattr, &inode_raw, sizeof(inode_raw), 0) != 0 &&
+        errno != EOPNOTSUPP) {
         PLOG(ERROR) << "Failed to write xattr " << inode_xattr << " at " << parent;
         return -1;
     } else {
