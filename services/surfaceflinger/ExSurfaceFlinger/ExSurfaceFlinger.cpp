@@ -84,7 +84,7 @@ void ExSurfaceFlinger::getIndexLOI(size_t dpy,
          */
         if (layer->isSecureDisplay()) {
             bIgnoreLayers = true;
-            nameLOI = NULL;
+            nameLOI = static_cast<String8>("unnamed");
             if (!dpy)
                 nameLOI = layer->getName();
             return;
