@@ -1428,7 +1428,7 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     const Layer::State& s(getDrawingState());
     const Transform hwTransform(hw->getTransform());
     const uint32_t hw_h = hw->getHeight();
-    const uint32_t orientation = 0;
+    uint32_t orientation = 0;
     Rect win = computeBounds();
     if (mDebugAndRecomputeCrop & 1) {
         win = Rect(s.active.w, s.active.h);
@@ -1463,7 +1463,7 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
             }
             transform = Transform(invTransform) * transform;
         }
-        const uint32_t orientation = transform.getOrientation();
+        orientation = transform.getOrientation();
         if (!(orientation | mCurrentTransform | mTransformHint)) {
             if (!useIdentityTransform) {
                 win = t.transform(win);
