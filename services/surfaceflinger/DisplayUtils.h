@@ -59,10 +59,12 @@ class DisplayUtils {
             sp<IGraphicBufferConsumer> bqConsumer, String8 currentStateDisplayName,
             bool currentStateIsSecure);
     bool canAllocateHwcDisplayIdForVDS(int usage);
+    bool skipDimLayer(const char* layerType);
     DisplayUtils();
   private:
     static DisplayUtils* sDisplayUtils;
     static bool sUseExtendedImpls;
+    static bool sDirectStreaming;
 };
 
 }; // namespace android

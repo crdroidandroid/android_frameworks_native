@@ -2680,7 +2680,12 @@ bool SurfaceFlinger::doComposeSurfaces(
         }
     } else {
         // we're not using h/w composer
+        DisplayUtils* displayUtils = DisplayUtils::getInstance();
         for (auto& layer : displayDevice->getVisibleLayersSortedByZ()) {
+            if(displayUtils->skipDimLayer(layer->getTypeId())) {
+                // Skipping DimLayer for WFD direct streaming case.
+                continue;
+            }
             const Region clip(dirty.intersect(
                     displayTransform.transform(layer->visibleRegion)));
             if (!clip.isEmpty()) {

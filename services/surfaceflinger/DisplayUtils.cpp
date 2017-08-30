@@ -49,6 +49,7 @@ namespace android {
 
 DisplayUtils* DisplayUtils::sDisplayUtils = NULL;
 bool DisplayUtils::sUseExtendedImpls = false;
+bool DisplayUtils::sDirectStreaming = false;
 
 DisplayUtils::DisplayUtils() {
 #ifdef QTI_BSP
@@ -103,17 +104,27 @@ void DisplayUtils::initVDSInstance(HWComposer* hwc, int32_t hwcDisplayId,
 
 bool DisplayUtils::canAllocateHwcDisplayIdForVDS(int usage) {
     // on AOSP builds with QTI_BSP disabled, we should allocate hwc display id for virtual display.
-    int flag_mask = 0xffffffff;
+    int flag_mask_pvt_wfd = 0xffffffff;
+    int flag_mask_hw_video = 0xffffffff;
     char value[PROPERTY_VALUE_MAX];
     property_get("debug.vds.allow_hwc", value, "0");
     int allowHwcForVDS = atoi(value);
 
 #if QTI_BSP
     // Reserve hardware acceleration for WFD use-case
-    flag_mask = GRALLOC_USAGE_PRIVATE_WFD;
+    // GRALLOC_USAGE_PRIVATE_WFD + GRALLOC_USAGE_HW_VIDEO_ENCODER = WFD using HW composer.
+    flag_mask_pvt_wfd = GRALLOC_USAGE_PRIVATE_WFD;
+    flag_mask_hw_video = GRALLOC_USAGE_HW_VIDEO_ENCODER;
+    // GRALLOC_USAGE_PRIVATE_WFD + GRALLOC_USAGE_SW_READ_OFTEN = WFD using GLES (directstreaming).
+    sDirectStreaming = ((usage & GRALLOC_USAGE_PRIVATE_WFD) &&
+            (usage & GRALLOC_USAGE_SW_READ_OFTEN));
 #endif
 
-    return (allowHwcForVDS || (usage & flag_mask));
+    return (allowHwcForVDS || ((usage & flag_mask_pvt_wfd) &&
+            (usage & flag_mask_hw_video)));
 }
 
+bool DisplayUtils::skipDimLayer(const char* layerType) {
+    return (sDirectStreaming && !strncmp(layerType, "LayerDim", strlen("LayerDim")));
+}
 }; // namespace android
