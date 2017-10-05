@@ -634,7 +634,16 @@ status_t HWComposer::presentAndGetReleaseFences(int32_t displayId) {
     auto& hwcDisplay = displayData.hwcDisplay;
 
     if (displayData.validateWasSkipped) {
-        hwcDisplay->discardCommands();
+        bool discardCommands = true;
+        for (int32_t display = HWC_DISPLAY_PRIMARY; display < HWC_NUM_DISPLAY_TYPES; display++) {
+            if (isValidDisplay(display) && !mDisplayData[display].validateWasSkipped) {
+                discardCommands = false;
+                break;
+            }
+        }
+        if (discardCommands) {
+            hwcDisplay->discardCommands();
+        }
         auto error = displayData.presentError;
         if (error != HWC2::Error::None) {
             ALOGE("skipValidate: failed for display %d: %s (%d)",
