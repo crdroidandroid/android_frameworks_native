@@ -58,8 +58,7 @@ void LayerDim::onDraw(const sp<const DisplayDevice>& hw,
 }
 
 bool LayerDim::isVisible() const {
-    const Layer::State& s(getDrawingState());
-    return !isHiddenByPolicy() && s.alpha;
+    return !isHiddenByPolicy() && getAlpha();
 }
 
 
