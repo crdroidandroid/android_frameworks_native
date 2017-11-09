@@ -435,7 +435,13 @@ binder::Status InstalldNativeService::createAppData(const std::unique_ptr<std::s
             // dex2oat/profman runs under the shared app gid and it needs to read/write reference
             // profiles.
             int shared_app_gid = multiuser_get_shared_gid(0, appId);
-            if ((shared_app_gid != -1) && fs_prepare_dir_strict(
+            if (shared_app_gid == -1) {
+                // Some apps don't have a shared_gid (i.e. the apps with System UIDs which fall
+                // outside the normal app range).
+                // For them, create the reference profile directory using the app uid.
+                shared_app_gid = uid;
+            }
+            if (fs_prepare_dir_strict(
                     ref_profile_path.c_str(), 0700, shared_app_gid, shared_app_gid) != 0) {
                 return error("Failed to prepare " + ref_profile_path);
             }
