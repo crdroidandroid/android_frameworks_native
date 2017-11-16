@@ -224,9 +224,6 @@ Layer::~Layer() {
 
 #ifdef USE_HWC2
 void Layer::onLayerDisplayed(const sp<Fence>& releaseFence) {
-    if (mHwcLayers.empty()) {
-        return;
-    }
     mSurfaceFlingerConsumer->setReleaseFence(releaseFence);
 }
 #else
