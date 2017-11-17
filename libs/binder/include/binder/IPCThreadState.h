@@ -75,6 +75,7 @@ public:
             int                 setupPolling(int* fd);
             status_t            handlePolledCommands();
             void                flushCommands();
+            bool                flushIfNeeded();
 
             void                joinThreadPool(bool isMain = true);
             
@@ -187,6 +188,7 @@ private:
             int32_t             mWorkSource;
             // Whether the work source should be propagated.
             bool                mPropagateWorkSource;
+            bool                mIsLooper;
             int32_t             mStrictModePolicy;
             int32_t             mLastTransactionBinderFlags;
             IPCThreadStateBase  *mIPCThreadStateBase;
