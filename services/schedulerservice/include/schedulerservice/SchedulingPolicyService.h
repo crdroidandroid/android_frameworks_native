@@ -38,6 +38,8 @@ using ::android::sp;
 
 struct SchedulingPolicyService : public ISchedulingPolicyService {
     Return<bool> requestPriority(int32_t pid, int32_t tid, int32_t priority) override;
+    Return<bool> requestPriorityDL(int32_t pid, int32_t tid,
+                                   uint64_t runtime, uint64_t deadline, uint64_t period);
     Return<int32_t> getMaxAllowedPriority() override;
 private:
     bool isAllowed();

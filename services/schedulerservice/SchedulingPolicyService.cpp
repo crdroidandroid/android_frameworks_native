@@ -48,6 +48,24 @@ Return<bool> SchedulingPolicyService::requestPriority(int32_t pid, int32_t tid, 
     return value == 0 /* success */;
 }
 
+Return<bool> SchedulingPolicyService::requestPriorityDL(int32_t pid, int32_t tid,
+        uint64_t runtime, uint64_t deadline, uint64_t period) {
+    if (!isAllowed())
+        return false;
+
+    /* 1024 <= runtime <= deadline <= period */
+    if (1024 > runtime ||
+        runtime > deadline ||
+        deadline > period) {
+        return false;
+    }
+
+    int value = android::requestPriorityDL(pid, tid,
+        runtime, deadline, period,
+        false /* isForApp */);
+    return value == 0 /* success */;
+}
+
 Return<int32_t> SchedulingPolicyService::getMaxAllowedPriority() {
     if (!isAllowed()) {
         return 0;
