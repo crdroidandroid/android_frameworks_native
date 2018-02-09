@@ -1444,7 +1444,7 @@ binder::Status InstalldNativeService::getAppSize(const std::unique_ptr<std::stri
         if (!uuid) {
             ATRACE_BEGIN("dalvik");
             int32_t sharedGid = multiuser_get_shared_gid(0, appId);
-            if (sharedGid != -1) {
+            if (sharedGid != -1 && sharedGid != 0) {
                 calculate_tree_size(create_data_dalvik_cache_path(), &stats.codeSize,
                         sharedGid, -1);
             }
