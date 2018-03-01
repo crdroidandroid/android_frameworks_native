@@ -1184,6 +1184,9 @@ status_t BufferQueueProducer::connect(const sp<IProducerListener>& listener,
             output->bufferReplaced = false;
 
             if (listener != NULL) {
+                if (listener->needsReleaseNotify()) {
+                    mCore->mConnectedProducerListener = listener;
+                }
                 // Set up a death notification so that we can disconnect
                 // automatically if the remote producer dies
                 if (IInterface::asBinder(listener)->remoteBinder() != NULL) {
@@ -1194,9 +1197,6 @@ status_t BufferQueueProducer::connect(const sp<IProducerListener>& listener,
                                 strerror(-status), status);
                     }
                     mCore->mLinkedToDeath = listener;
-                }
-                if (listener->needsReleaseNotify()) {
-                    mCore->mConnectedProducerListener = listener;
                 }
             }
             break;
