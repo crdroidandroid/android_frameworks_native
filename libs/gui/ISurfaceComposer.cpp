@@ -289,9 +289,14 @@ public:
         remote()->transact(BnSurfaceComposer::GET_DISPLAY_STATS, data, &reply);
         status_t result = reply.readInt32();
         if (result == NO_ERROR) {
-            memcpy(stats,
-                    reply.readInplace(sizeof(DisplayStatInfo)),
-                    sizeof(DisplayStatInfo));
+            const void* info = reply.readInplace(sizeof(DisplayStatInfo));
+            if (info) {
+                memcpy(stats,
+                       info,
+                       sizeof(DisplayStatInfo));
+            }
+            else
+                return BAD_VALUE;
         }
         return result;
     }
