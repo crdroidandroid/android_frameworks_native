@@ -367,7 +367,8 @@ public:
      * Other errors probably indicate that the channel is broken.
      */
     status_t consume(InputEventFactoryInterface* factory, bool consumeBatches, nsecs_t frameTime,
-                     uint32_t* outSeq, InputEvent** outEvent);
+                     uint32_t* outSeq, InputEvent** outEvent,
+                     int* motionEventType, int* touchMoveNumber, bool* flag);
 
     /* Sends a finished signal to the publisher to inform it that the message
      * with the specified sequence number has finished being process and whether
@@ -412,6 +413,8 @@ public:
     int32_t getPendingBatchSource() const;
 
 private:
+    int mTouchMoveCounter = 0;
+
     // True if touch resampling is enabled.
     const bool mResampleTouch;
 
@@ -529,7 +532,9 @@ private:
     Vector<SeqChain> mSeqChains;
 
     status_t consumeBatch(InputEventFactoryInterface* factory,
-            nsecs_t frameTime, uint32_t* outSeq, InputEvent** outEvent);
+            nsecs_t frameTime, uint32_t* outSeq, InputEvent** outEvent,
+            int* touchMoveNumber);
+
     status_t consumeSamples(InputEventFactoryInterface* factory,
             Batch& batch, size_t count, uint32_t* outSeq, InputEvent** outEvent);
 
