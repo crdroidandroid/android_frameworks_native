@@ -18,6 +18,7 @@
 #define ANDROID_MONITORED_PRODUCER_H
 
 #include <gui/IGraphicBufferProducer.h>
+#include "SurfaceFlingerConsumer.h"
 
 namespace android {
 
@@ -32,7 +33,8 @@ class MonitoredProducer : public BnGraphicBufferProducer {
 public:
     MonitoredProducer(const sp<IGraphicBufferProducer>& producer,
             const sp<SurfaceFlinger>& flinger,
-            const wp<Layer>& layer);
+            const wp<Layer>& layer,
+            const sp<SurfaceFlingerConsumer>& consumer);
     virtual ~MonitoredProducer();
 
     // From IGraphicBufferProducer
@@ -78,6 +80,7 @@ private:
     sp<SurfaceFlinger> mFlinger;
     // The Layer which created this producer, and on which queued Buffer's will be displayed.
     wp<Layer> mLayer;
+    sp<SurfaceFlingerConsumer> mSfConsumer;
 };
 
 }; // namespace android

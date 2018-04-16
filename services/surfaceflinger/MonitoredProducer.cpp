@@ -23,10 +23,12 @@ namespace android {
 
 MonitoredProducer::MonitoredProducer(const sp<IGraphicBufferProducer>& producer,
         const sp<SurfaceFlinger>& flinger,
-        const wp<Layer>& layer) :
+        const wp<Layer>& layer,
+        const sp<SurfaceFlingerConsumer>& sfconsumer) :
     mProducer(producer),
     mFlinger(flinger),
-    mLayer(layer) {}
+    mLayer(layer),
+    mSfConsumer(sfconsumer) {}
 
 MonitoredProducer::~MonitoredProducer() {
     // Remove ourselves from SurfaceFlinger's list. We do this asynchronously

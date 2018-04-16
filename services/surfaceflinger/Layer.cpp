@@ -172,11 +172,12 @@ void Layer::onFirstRef() {
     sp<IGraphicBufferProducer> producer;
     sp<IGraphicBufferConsumer> consumer;
     BufferQueue::createBufferQueue(&producer, &consumer, true);
-    mProducer = new MonitoredProducer(producer, mFlinger, this);
+
     mSurfaceFlingerConsumer = new SurfaceFlingerConsumer(consumer, mTextureName, this);
     mSurfaceFlingerConsumer->setConsumerUsageBits(getEffectiveUsage(0));
     mSurfaceFlingerConsumer->setContentsChangedListener(this);
     mSurfaceFlingerConsumer->setName(mName);
+    mProducer = new MonitoredProducer(producer, mFlinger, this, mSurfaceFlingerConsumer);
 
     if (mFlinger->isLayerTripleBufferingDisabled()) {
         mProducer->setMaxDequeuedBufferCount(2);
@@ -312,7 +313,6 @@ void Layer::onRemovedFromCurrentState() {
 void Layer::onRemoved() {
     // the layer is removed from SF mLayersPendingRemoval
 
-    mSurfaceFlingerConsumer->abandon();
 #ifdef USE_HWC2
     destroyAllHwcLayers();
 #endif
