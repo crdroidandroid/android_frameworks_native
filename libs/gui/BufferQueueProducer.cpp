@@ -930,7 +930,6 @@ status_t BufferQueueProducer::queueBuffer(int slot,
 
         mCore->mBufferHasBeenQueued = true;
         mCore->mDequeueCondition.broadcast();
-        mCore->mLastQueuedSlot = slot;
 
         output->width = mCore->mDefaultWidth;
         output->height = mCore->mDefaultHeight;
@@ -979,9 +978,13 @@ status_t BufferQueueProducer::queueBuffer(int slot,
         connectedApi = mCore->mConnectedApi;
         lastQueuedFence = std::move(mLastQueueBufferFence);
 
-        mLastQueueBufferFence = std::move(acquireFence);
-        mLastQueuedCrop = item.mCrop;
-        mLastQueuedTransform = item.mTransform;
+        { // Autolock scope
+            Mutex::Autolock lock2(mCore->mMutex);
+            mLastQueueBufferFence = std::move(acquireFence);
+            mLastQueuedCrop = item.mCrop;
+            mLastQueuedTransform = item.mTransform;
+            mCore->mLastQueuedSlot = slot;
+        }
 
         ++mCurrentCallbackTicket;
         mCallbackCondition.broadcast();
