@@ -137,12 +137,8 @@ public:
         unsigned n;
         for (n = 0; n < 5; n++){
             if (n > 0) {
-                if (!strcmp(ProcessState::self()->getDriverName().c_str(), "/dev/vndbinder")) {
-                    ALOGI("Waiting for vendor service %s...", String8(name).string());
-                    CallStack stack(LOG_TAG);
-                } else {
-                    ALOGI("Waiting for service %s...", String8(name).string());
-                }
+                ALOGI("Waiting for service '%s' on '%s'...", String8(name).string(),
+                    ProcessState::self()->getDriverName().c_str());
                 sleep(1);
             }
             sp<IBinder> svc = checkService(name);
