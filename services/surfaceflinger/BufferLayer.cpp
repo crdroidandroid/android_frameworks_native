@@ -202,6 +202,10 @@ void BufferLayer::onDraw(const RenderArea& renderArea, const Region& clip,
 
     bool blackOutLayer = isProtected() || (isSecure() && !renderArea.isSecure());
 
+    if (!hasHdrDisplay()) {
+        blackOutLayer = blackOutLayer|| isHDRLayer();
+    }
+
     auto& engine(mFlinger->getRenderEngine());
 
     if (!blackOutLayer) {
