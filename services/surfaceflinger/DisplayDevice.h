@@ -94,6 +94,7 @@ public:
     void                    setLayerStack(uint32_t stack);
     void                    setDisplaySize(const int newWidth, const int newHeight);
     void                    setProjection(int orientation, const Rect& viewport, const Rect& frame);
+    void                    setTranslate(int x, int y);
 
     int                     getOrientation() const { return mOrientation; }
     static uint32_t         getPrimaryDisplayOrientationTransform();
@@ -118,6 +119,11 @@ public:
     bool hasHDR10Support() const;
     bool hasHLGSupport() const;
     bool hasDolbyVisionSupport() const;
+
+    // Screen stabilization
+    int translateX;
+    int translateY;
+    ui::Transform R, TL, TP, S;
 
     // The returned HdrCapabilities is the combination of HDR capabilities from
     // hardware composer and RenderEngine. When the DisplayDevice supports wide

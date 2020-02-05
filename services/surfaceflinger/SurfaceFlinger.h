@@ -315,6 +315,8 @@ public:
 
     renderengine::RenderEngine& getRenderEngine() const;
 
+    void setTranslate(int x, int y, const DisplayDeviceState& state);
+
     bool authenticateSurfaceTextureLocked(
         const sp<IGraphicBufferProducer>& bufferProducer) const;
 
