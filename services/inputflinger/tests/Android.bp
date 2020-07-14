@@ -37,5 +37,8 @@ cc_test {
         "InputReader_test.cpp",
         "UinputDevice.cpp",
     ],
+    static_libs: [
+        "libc++fs"
+    ],
     require_root: true,
 }
