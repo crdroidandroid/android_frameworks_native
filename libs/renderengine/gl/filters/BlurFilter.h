@@ -36,7 +36,7 @@ namespace gl {
 class BlurFilter {
 public:
     // Downsample FBO to improve performance
-    static constexpr float kFboScale = 0.25f;
+    static constexpr float kFboScale = 0.2f;
     // To avoid downscaling artifacts, we interpolate the blurred fbo with the full composited
     // image, up to this radius.
     static constexpr float kMaxCrossFadeRadius = 30.0f;
