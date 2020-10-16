@@ -440,6 +440,9 @@ SurfaceFlinger::SurfaceFlinger(Factory& factory) : SurfaceFlinger(factory, SkipI
 
     property_get("ro.sf.force_light_brightness", value, "0");
     mForceLightBrightness = atoi(value);
+    
+    property_get("debug.sf.disable_hwc_overlays", value, "0");
+    mDebugDisableHWC = atoi(value);
 
     // We should be reading 'persist.sys.sf.color_saturation' here
     // but since /data may be encrypted, we need to wait until after vold
