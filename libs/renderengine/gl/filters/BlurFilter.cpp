@@ -37,6 +37,7 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
         mPongFbo(engine),
         mMixProgram(engine),
         mBlurProgram(engine) {
+    ALOGI("PRODUCT_SHIPPING_API_LEVEL=%d", PRODUCT_SHIPPING_API_LEVEL);
     mMixProgram.compile(getVertexShader(), getMixFragShader());
     mMPosLoc = mMixProgram.getAttributeLocation("aPosition");
     mMUvLoc = mMixProgram.getAttributeLocation("aUV");
@@ -206,6 +207,7 @@ status_t BlurFilter::render(bool multiPass) {
     return NO_ERROR;
 }
 
+#if PRODUCT_SHIPPING_API_LEVEL >= 21
 string BlurFilter::getVertexShader() const {
     return R"SHADER(#version 310 es
         precision mediump float;
@@ -262,6 +264,64 @@ string BlurFilter::getMixFragShader() const {
     )SHADER";
     return shader;
 }
+#else
+string BlurFilter::getVertexShader() const {
+    return R"SHADER(#version 300 es
+        precision mediump float;
+
+        in vec2 aPosition;
+        in highp vec2 aUV;
+        out highp vec2 vUV;
+
+        void main() {
+            vUV = aUV;
+            gl_Position = vec4(aPosition, 0.0, 1.0);
+        }
+    )SHADER";
+}
+
+string BlurFilter::getFragmentShader() const {
+    return R"SHADER(#version 300 es
+        precision mediump float;
+
+        uniform sampler2D uTexture;
+        uniform vec2 uOffset;
+
+        in highp vec2 vUV;
+        out vec4 fragColor;
+
+        void main() {
+            fragColor  = texture(uTexture, vUV, 0.0);
+            fragColor += texture(uTexture, vUV + vec2( uOffset.x,  uOffset.y), 0.0);
+            fragColor += texture(uTexture, vUV + vec2( uOffset.x, -uOffset.y), 0.0);
+            fragColor += texture(uTexture, vUV + vec2(-uOffset.x,  uOffset.y), 0.0);
+            fragColor += texture(uTexture, vUV + vec2(-uOffset.x, -uOffset.y), 0.0);
+
+            fragColor = vec4(fragColor.rgb * 0.2, 1.0);
+        }
+    )SHADER";
+}
+
+string BlurFilter::getMixFragShader() const {
+    string shader = R"SHADER(#version 300 es
+        precision mediump float;
+
+        in highp vec2 vUV;
+        out vec4 fragColor;
+
+        uniform sampler2D uCompositionTexture;
+        uniform sampler2D uTexture;
+        uniform float uMix;
+
+        void main() {
+            vec4 blurred = texture(uTexture, vUV);
+            vec4 composition = texture(uCompositionTexture, vUV);
+            fragColor = mix(composition, blurred, uMix);
+        }
+    )SHADER";
+    return shader;
+}
+#endif
 
 } // namespace gl
 } // namespace renderengine
