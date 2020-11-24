@@ -520,6 +520,7 @@ void BufferLayer::notifyAvailableFrames(nsecs_t expectedPresentTime) {
             }
         }
     }
+    mAvailableFrameNumber = mLocalSyncPoints.size() > 0 ? headFrameNumber : 0;
 }
 
 bool BufferLayer::hasReadyFrame() const {

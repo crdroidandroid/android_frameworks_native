@@ -177,10 +177,17 @@ uint64_t BufferQueueLayer::getFrameNumber(nsecs_t expectedPresentTime) const {
     }
 
     for (int i = 1; i < mQueueItems.size(); i++) {
+        if (mAvailableFrameNumber != 0 &&
+            mQueueItems[i].mFrameNumber > mAvailableFrameNumber) {
+            break;
+        }
+
         const bool fenceSignaled =
                 mQueueItems[i].mFenceTime->getSignalTime() != Fence::SIGNAL_TIME_PENDING;
-        if (!fenceSignaled) {
-            break;
+        if (!latchUnsignaledBuffers()) {
+            if (!fenceSignaled) {
+                break;
+            }
         }
 
         // We don't drop frames without explicit timestamps
@@ -258,10 +265,16 @@ status_t BufferQueueLayer::updateTexImage(bool& recomputeVisibleRegions, nsecs_t
     {
         Mutex::Autolock lock(mQueueItemLock);
         for (int i = 0; i < mQueueItems.size(); i++) {
+            if (mAvailableFrameNumber != 0 &&
+                mQueueItems[i].mFrameNumber > mAvailableFrameNumber) {
+                break;
+            }
             bool fenceSignaled =
                     mQueueItems[i].mFenceTime->getSignalTime() != Fence::SIGNAL_TIME_PENDING;
-            if (!fenceSignaled) {
-                break;
+            if (!latchUnsignaledBuffers()) {
+                if (!fenceSignaled) {
+                    break;
+                }
             }
             lastSignaledFrameNumber = mQueueItems[i].mFrameNumber;
         }

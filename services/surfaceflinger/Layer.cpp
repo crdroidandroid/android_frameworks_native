@@ -136,6 +136,8 @@ Layer::Layer(const LayerCreationArgs& args)
 
     mCallingPid = args.callingPid;
     mCallingUid = args.callingUid;
+
+    mAvailableFrameNumber = 0;
 }
 
 void Layer::onFirstRef() {
@@ -2640,6 +2642,10 @@ void Layer::updateClonedRelatives(const std::map<sp<Layer>, sp<Layer>>& clonedLa
 void Layer::addChildToDrawing(const sp<Layer>& layer) {
     mDrawingChildren.add(layer);
     layer->mDrawingParent = this;
+}
+
+void Layer::clearNotifiedFrameNumber() {
+    mAvailableFrameNumber = 0;
 }
 
 Layer::FrameRateCompatibility Layer::FrameRate::convertCompatibility(int8_t compatibility) {

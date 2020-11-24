@@ -1300,6 +1300,8 @@ private:
     int mFrameRateFlexibilityTokenCount = 0;
 
     sp<IBinder> mDebugFrameRateFlexibilityToken;
+
+    void clearCurrentStateLayerNotifiedFrameNumber();
 };
 
 } // namespace android
