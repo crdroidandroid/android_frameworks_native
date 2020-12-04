@@ -91,6 +91,11 @@ public:
     __attribute__((weak))
     int                 getMinSchedulerPriority();
 
+    // Whether realtime scheduling policies are inherited.
+    bool                isInheritRt();
+    // This must be called before the object is sent to another process. Not thread safe.
+    void                setInheritRt(bool inheritRt);
+
     pid_t               getDebugPid();
 
 protected:
