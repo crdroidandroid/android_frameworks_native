@@ -144,7 +144,8 @@ status_t BlurFilter::prepare() {
     const auto radius = mRadius / 6.0f;
 
     // Calculate how many passes we'll do, based on the radius.
-    const auto passes = max((uint32_t)1, (uint32_t)ceil(radius));
+    // Too many passes will make the operation expensive.
+    const auto passes = min(kMaxPasses, (uint32_t)ceil(radius));
 
     const float radiusByPasses = radius / (float)passes;
     const float stepX = radiusByPasses / (float)mCompositionFbo.getBufferWidth();
