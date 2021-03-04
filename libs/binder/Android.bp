@@ -162,6 +162,11 @@ cc_library {
     lto: {
         thin: true,
     },
+
+    pgo: {
+        sampling: true,
+        profile_file: "libbinder/libbinder.profdata",
+    },
 }
 
 // AIDL interface between libbinder and framework.jar
