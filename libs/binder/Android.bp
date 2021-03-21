@@ -158,6 +158,10 @@ cc_library {
         misc_undefined: ["integer"],
     },
     min_sdk_version: "29",
+
+    lto: {
+        thin: true,
+    },
 }
 
 // AIDL interface between libbinder and framework.jar
