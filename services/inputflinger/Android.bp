@@ -21,6 +21,8 @@ cc_defaults {
         "-Werror",
         "-Wno-unused-parameter",
         "-Wthread-safety",
+        "-O3",
+        "-g0"
     ],
 }
 
