@@ -436,7 +436,7 @@ void BpBinder::onLastStrongRef(const void* /*id*/)
     Vector<Obituary>* obits = mObituaries;
     if(obits != nullptr) {
         if (!obits->isEmpty()) {
-            ALOGI("onLastStrongRef automatically unlinking death recipients: %s",
+            ALOGV("onLastStrongRef automatically unlinking death recipients: %s",
                   mDescriptorCache.size() ? String8(mDescriptorCache).c_str() : "<uncached descriptor>");
         }
 
