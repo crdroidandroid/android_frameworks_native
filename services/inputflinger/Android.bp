@@ -55,6 +55,9 @@ cc_defaults {
         "libutils",
         "libui",
     ],
+    lto: {
+        thin: true,
+    },
 }
 
 cc_library_shared {
