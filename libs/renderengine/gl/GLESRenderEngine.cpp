@@ -1062,6 +1062,14 @@ status_t GLESRenderEngine::drawLayers(const DisplaySettings& display,
             }
         }
     }
+
+    // Limit blur to the two frontmost layers for performance. We need one at the front
+    // and one behind for cross-fading and additional blurring. Rendering additional layers
+    // comes at a big performance penalty and makes little to no noticeable difference.
+    while (blurLayers.size() > 2) {
+        blurLayers.pop_front();
+    }
+
     const auto blurLayersSize = blurLayers.size();
 
     if (blurLayersSize == 0) {
