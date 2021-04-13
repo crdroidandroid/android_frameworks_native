@@ -17,6 +17,7 @@
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 
 #include "BlurFilter.h"
+#include "BlurNoise.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES3/gl3.h>
@@ -35,7 +36,9 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
         mCompositionFbo(engine),
         mPingFbo(engine),
         mPongFbo(engine),
+        mDitherFbo(engine),
         mMixProgram(engine),
+        mDitherMixProgram(engine),
         mBlurProgram(engine) {
     mMixProgram.compile(getVertexShader(), getMixFragShader());
     mMPosLoc = mMixProgram.getAttributeLocation("aPosition");
@@ -43,6 +46,18 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
     mMBlurTextureLoc = mMixProgram.getUniformLocation("uBlurTexture");
     mMCompositionTextureLoc = mMixProgram.getUniformLocation("uCompositionTexture");
     mMBlurOpacityLoc = mMixProgram.getUniformLocation("uBlurOpacity");
+
+    mDitherMixProgram.compile(getDitherMixVertShader(), getDitherMixFragShader());
+    mDPosLoc = mDitherMixProgram.getAttributeLocation("aPosition");
+    mDUvLoc = mDitherMixProgram.getAttributeLocation("aUV");
+    mDNoiseUvScaleLoc = mDitherMixProgram.getUniformLocation("uNoiseUVScale");
+    mDBlurTextureLoc = mDitherMixProgram.getUniformLocation("uBlurTexture");
+    mDDitherTextureLoc = mDitherMixProgram.getUniformLocation("uDitherTexture");
+    mDCompositionTextureLoc = mDitherMixProgram.getUniformLocation("uCompositionTexture");
+    mDBlurOpacityLoc = mDitherMixProgram.getUniformLocation("uBlurOpacity");
+    mDitherFbo.allocateBuffers(64, 64, (void *) kNoiseData,
+                               GL_NEAREST, GL_REPEAT,
+                               GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE);
 
     mBlurProgram.compile(getVertexShader(), getFragmentShader());
     mBPosLoc = mBlurProgram.getAttributeLocation("aPosition");
@@ -81,8 +96,13 @@ status_t BlurFilter::setAsDrawTarget(const DisplaySettings& display, uint32_t ra
 
         const uint32_t fboWidth = floorf(mDisplayWidth * kFboScale);
         const uint32_t fboHeight = floorf(mDisplayHeight * kFboScale);
-        mPingFbo.allocateBuffers(fboWidth, fboHeight);
-        mPongFbo.allocateBuffers(fboWidth, fboHeight);
+        mPingFbo.allocateBuffers(fboWidth, fboHeight, nullptr,
+                                 GL_LINEAR, GL_CLAMP_TO_EDGE,
+                                 // 2-10-10-10 reversed is the only 10-bpc format in GLES 3.1
+                                 GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV);
+        mPongFbo.allocateBuffers(fboWidth, fboHeight, nullptr,
+                                 GL_LINEAR, GL_CLAMP_TO_EDGE,
+                                 GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV);
 
         if (mPingFbo.getStatus() != GL_FRAMEBUFFER_COMPLETE) {
             ALOGE("Invalid ping buffer");
@@ -100,6 +120,13 @@ status_t BlurFilter::setAsDrawTarget(const DisplaySettings& display, uint32_t ra
             ALOGE("Invalid shader");
             return GL_INVALID_OPERATION;
         }
+
+        // Set scale for noise texture UV
+        mDitherMixProgram.useProgram();
+        glUniform2f(mDNoiseUvScaleLoc,
+                    1.0 / kNoiseSize * mDisplayWidth,
+                    1.0 / kNoiseSize * mDisplayHeight);
+        glUseProgram(0);
     }
 
     mCompositionFbo.bind();
@@ -171,7 +198,7 @@ status_t BlurFilter::prepare() {
     return NO_ERROR;
 }
 
-status_t BlurFilter::render(bool multiPass) {
+status_t BlurFilter::render(size_t layers, int currentLayer) {
     ATRACE_NAME("BlurFilter::render");
 
     // Now let's scale our blur up. It will be interpolated with the larger composited
@@ -181,24 +208,32 @@ status_t BlurFilter::render(bool multiPass) {
     // When doing multiple passes, we cannot try to read mCompositionFbo, given that we'll
     // be writing onto it. Let's disable the crossfade, otherwise we'd need 1 extra frame buffer,
     // as large as the screen size.
-    if (opacity >= 1 || multiPass) {
-        mLastDrawTarget->bindAsReadBuffer();
-        glBlitFramebuffer(0, 0, mLastDrawTarget->getBufferWidth(),
-                          mLastDrawTarget->getBufferHeight(), mDisplayX, mDisplayY, mDisplayWidth,
-                          mDisplayHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        return NO_ERROR;
+    if (opacity >= 1 || layers > 1) {
+        opacity = 1.0f;
     }
 
-    mMixProgram.useProgram();
-    glUniform1f(mMBlurOpacityLoc, opacity);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mLastDrawTarget->getTextureName());
-    glUniform1i(mMBlurTextureLoc, 0);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, mCompositionFbo.getTextureName());
-    glUniform1i(mMCompositionTextureLoc, 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, mDitherFbo.getTextureName());
 
-    drawMesh(mMUvLoc, mMPosLoc);
+    // Dither the last layer
+    if (currentLayer == layers - 1) {
+        mDitherMixProgram.useProgram();
+        glUniform1f(mDBlurOpacityLoc, opacity);
+        glUniform1i(mDBlurTextureLoc, 0);
+        glUniform1i(mDCompositionTextureLoc, 1);
+        glUniform1i(mDDitherTextureLoc, 2);
+        drawMesh(mDUvLoc, mDPosLoc);
+    } else {
+        mMixProgram.useProgram();
+        glUniform1f(mMBlurOpacityLoc, opacity);
+        glUniform1i(mMBlurTextureLoc, 0);
+        glUniform1i(mMCompositionTextureLoc, 1);
+        drawMesh(mMUvLoc, mMPosLoc);
+    }
 
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
@@ -261,6 +296,66 @@ string BlurFilter::getMixFragShader() const {
         }
     )SHADER";
     return shader;
+}
+
+string BlurFilter::getDitherMixVertShader() const {
+    return R"SHADER(#version 310 es
+        precision mediump float;
+
+        uniform vec2 uNoiseUVScale;
+
+        in vec2 aPosition;
+        in vec2 aUV;
+        out vec2 vUV;
+        out vec2 vNoiseUV;
+
+        void main() {
+            vUV = aUV;
+            vNoiseUV = aUV * uNoiseUVScale;
+            gl_Position = vec4(aPosition, 0.0, 1.0);
+        }
+    )SHADER";
+}
+
+string BlurFilter::getDitherMixFragShader() const {
+    return R"SHADER(#version 310 es
+        precision mediump float;
+
+        in highp vec2 vUV;
+        in vec2 vNoiseUV;
+        out vec4 fragColor;
+
+        uniform sampler2D uCompositionTexture;
+        uniform sampler2D uBlurTexture;
+        uniform sampler2D uDitherTexture;
+        uniform float uBlurOpacity;
+
+        // Fast implementation of sign(vec3)
+        // Using overflow trick from https://twitter.com/SebAaltonen/status/878250919879639040
+        #define FLT_MAX 3.402823466e+38
+        vec3 fastSign(vec3 x) {
+            return clamp(x * FLT_MAX + 0.5, 0.0, 1.0) * 2.0 - 1.0;
+        }
+
+        // Fast gamma 2 approximation of sRGB
+        vec3 srgbToLinear(vec3 srgb) {
+            return srgb * srgb;
+        }
+
+        vec3 linearToSrgb(vec3 linear) {
+            return sqrt(linear);
+        }
+
+        void main() {
+            // Remap uniform blue noise to triangular PDF distribution
+            vec3 dither = texture(uDitherTexture, vNoiseUV).rgb * 2.0 - 1.0;
+            dither = fastSign(dither) * (1.0 - sqrt(1.0 - abs(dither))) / 64.0;
+
+            vec3 blurred = srgbToLinear(linearToSrgb(texture(uBlurTexture, vUV).rgb) + dither);
+            vec3 composition = texture(uCompositionTexture, vUV).rgb;
+            fragColor = vec4(mix(composition, blurred, uBlurOpacity), 1.0);
+        }
+    )SHADER";
 }
 
 } // namespace gl
