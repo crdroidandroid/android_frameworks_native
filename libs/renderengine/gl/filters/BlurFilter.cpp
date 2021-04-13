@@ -65,6 +65,18 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
     mBTextureLoc = mBlurProgram.getUniformLocation("uTexture");
     mBOffsetLoc = mBlurProgram.getUniformLocation("uOffset");
 
+    // Initialize constant shader uniforms
+    mMixProgram.useProgram();
+    glUniform1i(mMBlurTextureLoc, 0);
+    glUniform1i(mMCompositionTextureLoc, 1);
+    mDitherMixProgram.useProgram();
+    glUniform1i(mDBlurTextureLoc, 0);
+    glUniform1i(mDCompositionTextureLoc, 1);
+    glUniform1i(mDDitherTextureLoc, 2);
+    mBlurProgram.useProgram();
+    glUniform1i(mBTextureLoc, 0);
+    glUseProgram(0);
+
     static constexpr auto size = 2.0f;
     static constexpr auto translation = 1.0f;
     const GLfloat vboData[] = {
@@ -167,7 +179,6 @@ status_t BlurFilter::prepare() {
     // Let's start by downsampling and blurring the composited frame simultaneously.
     mBlurProgram.useProgram();
     glActiveTexture(GL_TEXTURE0);
-    glUniform1i(mBTextureLoc, 0);
     glBindTexture(GL_TEXTURE_2D, mCompositionFbo.getTextureName());
     glUniform2f(mBOffsetLoc, stepX, stepY);
     glViewport(0, 0, mPingFbo.getBufferWidth(), mPingFbo.getBufferHeight());
@@ -222,15 +233,10 @@ status_t BlurFilter::render(size_t layers, int currentLayer) {
     if (currentLayer == layers - 1) {
         mDitherMixProgram.useProgram();
         glUniform1f(mDBlurOpacityLoc, opacity);
-        glUniform1i(mDBlurTextureLoc, 0);
-        glUniform1i(mDCompositionTextureLoc, 1);
-        glUniform1i(mDDitherTextureLoc, 2);
         drawMesh(mDUvLoc, mDPosLoc);
     } else {
         mMixProgram.useProgram();
         glUniform1f(mMBlurOpacityLoc, opacity);
-        glUniform1i(mMBlurTextureLoc, 0);
-        glUniform1i(mMCompositionTextureLoc, 1);
         drawMesh(mMUvLoc, mMPosLoc);
     }
 
