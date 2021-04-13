@@ -177,18 +177,21 @@ status_t BlurFilter::prepare() {
     const float stepX = radiusByPasses / (float)mCompositionFbo.getBufferWidth();
     const float stepY = radiusByPasses / (float)mCompositionFbo.getBufferHeight();
 
-    // Let's start by downsampling and blurring the composited frame simultaneously.
-    mBlurProgram.useProgram();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, mCompositionFbo.getTextureName());
-    glUniform2f(mBOffsetLoc, stepX, stepY);
-    glViewport(0, 0, mPingFbo.getBufferWidth(), mPingFbo.getBufferHeight());
-    mPingFbo.bind();
-    drawMesh(mBUvLoc, mBPosLoc);
+    // This initial downscaling blit makes the first pass correct and improves performance.
+    GLFramebuffer* read = &mCompositionFbo;
+    GLFramebuffer* draw = &mPingFbo;
+    read->bindAsReadBuffer();
+    draw->bindAsDrawBuffer();
+    glBlitFramebuffer(0, 0,
+                      read->getBufferWidth(), read->getBufferHeight(),
+                      0, 0,
+                      draw->getBufferWidth(), draw->getBufferHeight(),
+                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    read = &mPingFbo;
+    draw = &mPongFbo;
 
     // And now we'll ping pong between our textures, to accumulate the result of various offsets.
-    GLFramebuffer* read = &mPingFbo;
-    GLFramebuffer* draw = &mPongFbo;
+    mBlurProgram.useProgram();
     glViewport(0, 0, draw->getBufferWidth(), draw->getBufferHeight());
     for (auto i = 1; i < passes; i++) {
         ATRACE_NAME("BlurFilter::renderPass");
@@ -200,9 +203,7 @@ status_t BlurFilter::prepare() {
         drawMesh(mBUvLoc, mBPosLoc);
 
         // Swap buffers for next iteration
-        auto tmp = draw;
-        draw = read;
-        read = tmp;
+        std::swap(read, draw);
     }
     mLastDrawTarget = read;
 
