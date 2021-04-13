@@ -40,9 +40,9 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
     mMixProgram.compile(getVertexShader(), getMixFragShader());
     mMPosLoc = mMixProgram.getAttributeLocation("aPosition");
     mMUvLoc = mMixProgram.getAttributeLocation("aUV");
-    mMTextureLoc = mMixProgram.getUniformLocation("uTexture");
+    mMBlurTextureLoc = mMixProgram.getUniformLocation("uBlurTexture");
     mMCompositionTextureLoc = mMixProgram.getUniformLocation("uCompositionTexture");
-    mMMixLoc = mMixProgram.getUniformLocation("uMix");
+    mMBlurOpacityLoc = mMixProgram.getUniformLocation("uBlurOpacity");
 
     mBlurProgram.compile(getVertexShader(), getFragmentShader());
     mBPosLoc = mBlurProgram.getAttributeLocation("aPosition");
@@ -176,12 +176,12 @@ status_t BlurFilter::render(bool multiPass) {
 
     // Now let's scale our blur up. It will be interpolated with the larger composited
     // texture for the first frames, to hide downscaling artifacts.
-    GLfloat mix = fmin(1.0, mRadius / kMaxCrossFadeRadius);
+    GLfloat opacity = fmin(1.0, mRadius / kMaxCrossFadeRadius);
 
     // When doing multiple passes, we cannot try to read mCompositionFbo, given that we'll
     // be writing onto it. Let's disable the crossfade, otherwise we'd need 1 extra frame buffer,
     // as large as the screen size.
-    if (mix >= 1 || multiPass) {
+    if (opacity >= 1 || multiPass) {
         mLastDrawTarget->bindAsReadBuffer();
         glBlitFramebuffer(0, 0, mLastDrawTarget->getBufferWidth(),
                           mLastDrawTarget->getBufferHeight(), mDisplayX, mDisplayY, mDisplayWidth,
@@ -190,10 +190,10 @@ status_t BlurFilter::render(bool multiPass) {
     }
 
     mMixProgram.useProgram();
-    glUniform1f(mMMixLoc, mix);
+    glUniform1f(mMBlurOpacityLoc, opacity);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mLastDrawTarget->getTextureName());
-    glUniform1i(mMTextureLoc, 0);
+    glUniform1i(mMBlurTextureLoc, 0);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, mCompositionFbo.getTextureName());
     glUniform1i(mMCompositionTextureLoc, 1);
@@ -251,13 +251,13 @@ string BlurFilter::getMixFragShader() const {
         out vec4 fragColor;
 
         uniform sampler2D uCompositionTexture;
-        uniform sampler2D uTexture;
-        uniform float uMix;
+        uniform sampler2D uBlurTexture;
+        uniform float uBlurOpacity;
 
         void main() {
-            vec4 blurred = texture(uTexture, vUV);
+            vec4 blurred = texture(uBlurTexture, vUV);
             vec4 composition = texture(uCompositionTexture, vUV);
-            fragColor = mix(composition, blurred, uMix);
+            fragColor = mix(composition, blurred, uBlurOpacity);
         }
     )SHADER";
     return shader;
