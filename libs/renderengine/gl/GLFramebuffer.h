@@ -39,7 +39,10 @@ public:
 
     bool setNativeWindowBuffer(ANativeWindowBuffer* nativeBuffer, bool isProtected,
                                const bool useFramebufferCache) override;
-    void allocateBuffers(uint32_t width, uint32_t height, void* data = nullptr);
+    void allocateBuffers(uint32_t width, uint32_t height, void* data = nullptr,
+                         GLint filter = GL_LINEAR, GLint wrap = GL_MIRRORED_REPEAT,
+                         GLint internalformat = GL_RGB, GLenum format = GL_RGB,
+                         GLenum type = GL_UNSIGNED_BYTE);
     EGLImageKHR getEGLImage() const { return mEGLImage; }
     uint32_t getTextureName() const { return mTextureName; }
     uint32_t getFramebufferName() const { return mFramebufferName; }
