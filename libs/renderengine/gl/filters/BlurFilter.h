@@ -55,7 +55,7 @@ public:
 
 private:
     uint32_t mRadius;
-    void drawMesh(GLuint uv, GLuint position);
+    void drawMesh();
     string getBlurVertShader() const;
     string getBlurFragShader() const;
     string getMixVertShader() const;
@@ -78,19 +78,12 @@ private:
     // Buffer holding the final blur pass.
     GLFramebuffer* mLastDrawTarget;
 
-    // VBO containing vertex and uv data of a fullscreen triangle.
-    GLVertexBuffer mMeshBuffer;
-
     GenericProgram mMixProgram;
-    GLuint mMPosLoc;
-    GLuint mMUvLoc;
     GLuint mMBlurOpacityLoc;
     GLuint mMBlurTextureLoc;
     GLuint mMCompositionTextureLoc;
 
     GenericProgram mDitherMixProgram;
-    GLuint mDPosLoc;
-    GLuint mDUvLoc;
     GLuint mDNoiseUvScaleLoc;
     GLuint mDBlurOpacityLoc;
     GLuint mDBlurTextureLoc;
@@ -98,8 +91,6 @@ private:
     GLuint mDCompositionTextureLoc;
 
     GenericProgram mBlurProgram;
-    GLuint mBPosLoc;
-    GLuint mBUvLoc;
     GLuint mBTextureLoc;
     GLuint mBOffsetLoc;
 };
