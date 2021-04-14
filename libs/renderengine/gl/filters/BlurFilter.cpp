@@ -40,7 +40,7 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
         mMixProgram(engine),
         mDitherMixProgram(engine),
         mBlurProgram(engine) {
-    mMixProgram.compile(getVertexShader(), getMixFragShader());
+    mMixProgram.compile(getMixVertShader(), getMixFragShader());
     mMPosLoc = mMixProgram.getAttributeLocation("aPosition");
     mMUvLoc = mMixProgram.getAttributeLocation("aUV");
     mMBlurTextureLoc = mMixProgram.getUniformLocation("uBlurTexture");
@@ -59,7 +59,7 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
                                GL_NEAREST, GL_REPEAT,
                                GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE);
 
-    mBlurProgram.compile(getVertexShader(), getFragmentShader());
+    mBlurProgram.compile(getBlurVertShader(), getBlurFragShader());
     mBPosLoc = mBlurProgram.getAttributeLocation("aPosition");
     mBUvLoc = mBlurProgram.getAttributeLocation("aUV");
     mBTextureLoc = mBlurProgram.getUniformLocation("uTexture");
@@ -247,7 +247,52 @@ status_t BlurFilter::render(size_t layers, int currentLayer) {
     return NO_ERROR;
 }
 
-string BlurFilter::getVertexShader() const {
+string BlurFilter::getBlurVertShader() const {
+    return R"SHADER(#version 310 es
+        precision mediump float;
+
+        uniform vec2 uOffset;
+
+        in vec2 aPosition;
+        in vec2 aUV;
+        out vec2 vUV;
+        out vec2 vBlurTaps[4];
+
+        void main() {
+            vUV = aUV;
+            gl_Position = vec4(aPosition, 0.0, 1.0);
+
+            vBlurTaps[0] = vUV + vec2( uOffset.x,  uOffset.y);
+            vBlurTaps[1] = vUV + vec2( uOffset.x, -uOffset.y);
+            vBlurTaps[2] = vUV + vec2(-uOffset.x,  uOffset.y);
+            vBlurTaps[3] = vUV + vec2(-uOffset.x, -uOffset.y);
+        }
+    )SHADER";
+}
+
+string BlurFilter::getBlurFragShader() const {
+    return R"SHADER(#version 310 es
+        precision mediump float;
+
+        uniform sampler2D uTexture;
+
+        in vec2 vUV;
+        in vec2 vBlurTaps[4];
+        out vec4 fragColor;
+
+        void main() {
+            vec3 sum = texture(uTexture, vUV).rgb;
+            sum += texture(uTexture, vBlurTaps[0]).rgb;
+            sum += texture(uTexture, vBlurTaps[1]).rgb;
+            sum += texture(uTexture, vBlurTaps[2]).rgb;
+            sum += texture(uTexture, vBlurTaps[3]).rgb;
+
+            fragColor = vec4(sum * 0.2, 1.0);
+        }
+    )SHADER";
+}
+
+string BlurFilter::getMixVertShader() const {
     return R"SHADER(#version 310 es
         precision mediump float;
 
@@ -258,28 +303,6 @@ string BlurFilter::getVertexShader() const {
         void main() {
             vUV = aUV;
             gl_Position = vec4(aPosition, 0.0, 1.0);
-        }
-    )SHADER";
-}
-
-string BlurFilter::getFragmentShader() const {
-    return R"SHADER(#version 310 es
-        precision mediump float;
-
-        uniform sampler2D uTexture;
-        uniform vec2 uOffset;
-
-        in vec2 vUV;
-        out vec4 fragColor;
-
-        void main() {
-            vec3 sum = texture(uTexture, vUV).rgb;
-            sum += texture(uTexture, vUV + vec2( uOffset.x,  uOffset.y)).rgb;
-            sum += texture(uTexture, vUV + vec2( uOffset.x, -uOffset.y)).rgb;
-            sum += texture(uTexture, vUV + vec2(-uOffset.x,  uOffset.y)).rgb;
-            sum += texture(uTexture, vUV + vec2(-uOffset.x, -uOffset.y)).rgb;
-
-            fragColor = vec4(sum * 0.2, 1.0);
         }
     )SHADER";
 }
