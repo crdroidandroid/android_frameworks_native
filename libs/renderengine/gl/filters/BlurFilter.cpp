@@ -232,13 +232,13 @@ string BlurFilter::getFragmentShader() const {
         out vec4 fragColor;
 
         void main() {
-            fragColor  = texture(uTexture, vUV, 0.0);
-            fragColor += texture(uTexture, vUV + vec2( uOffset.x,  uOffset.y), 0.0);
-            fragColor += texture(uTexture, vUV + vec2( uOffset.x, -uOffset.y), 0.0);
-            fragColor += texture(uTexture, vUV + vec2(-uOffset.x,  uOffset.y), 0.0);
-            fragColor += texture(uTexture, vUV + vec2(-uOffset.x, -uOffset.y), 0.0);
+            vec3 sum = texture(uTexture, vUV).rgb;
+            sum += texture(uTexture, vUV + vec2( uOffset.x,  uOffset.y)).rgb;
+            sum += texture(uTexture, vUV + vec2( uOffset.x, -uOffset.y)).rgb;
+            sum += texture(uTexture, vUV + vec2(-uOffset.x,  uOffset.y)).rgb;
+            sum += texture(uTexture, vUV + vec2(-uOffset.x, -uOffset.y)).rgb;
 
-            fragColor = vec4(fragColor.rgb * 0.2, 1.0);
+            fragColor = vec4(sum * 0.2, 1.0);
         }
     )SHADER";
 }
@@ -255,9 +255,9 @@ string BlurFilter::getMixFragShader() const {
         uniform float uBlurOpacity;
 
         void main() {
-            vec4 blurred = texture(uBlurTexture, vUV);
-            vec4 composition = texture(uCompositionTexture, vUV);
-            fragColor = mix(composition, blurred, uBlurOpacity);
+            vec3 blurred = texture(uBlurTexture, vUV).rgb;
+            vec3 composition = texture(uCompositionTexture, vUV).rgb;
+            fragColor = vec4(mix(composition, blurred, uBlurOpacity), 1.0);
         }
     )SHADER";
     return shader;
