@@ -85,6 +85,13 @@ public:
     sp<Surface> getSurface(bool includeSurfaceControlHandle);
     bool isSameSurfaceControl(const sp<SurfaceControl>& surfaceControl) const;
 
+    void setUndequeuedBufferCount(int count) {
+        mNumUndequeued = count;
+    }
+    int getUndequeuedBufferCount() const {
+        return mNumUndequeued;
+    }
+
     void onBufferFreed(const wp<GraphicBuffer>&/* graphicBuffer*/) override { /* TODO */ }
     void onFrameReplaced(const BufferItem& item) override;
     void onFrameAvailable(const BufferItem& item) override;
@@ -172,6 +179,7 @@ private:
     // the max to be acquired
     int32_t mMaxAcquiredBuffers = 1;
 
+    int mNumUndequeued GUARDED_BY(mMutex) =0;
     int32_t mNumFrameAvailable GUARDED_BY(mMutex) = 0;
     int32_t mNumAcquired GUARDED_BY(mMutex) = 0;
 
