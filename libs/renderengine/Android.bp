@@ -84,11 +84,6 @@ cc_library_static {
     lto: {
         thin: true,
     },
-    product_variables: {
-        product_shipping_api_level: {
-            cflags: ["-DPRODUCT_SHIPPING_API_LEVEL=%d"],
-        },
-    },
 }
 
 cc_library_static {
