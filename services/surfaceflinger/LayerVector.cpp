@@ -42,10 +42,9 @@ int LayerVector::do_compare(const void* lhs, const void* rhs) const
     const auto& l = *reinterpret_cast<const sp<Layer>*>(lhs);
     const auto& r = *reinterpret_cast<const sp<Layer>*>(rhs);
 
-    const auto& lState =
-            (mStateSet == StateSet::Current) ? l->getCurrentState() : l->getDrawingState();
-    const auto& rState =
-            (mStateSet == StateSet::Current) ? r->getCurrentState() : r->getDrawingState();
+    const bool isCurrentState = mStateSet == StateSet::Current;
+    const auto& lState = isCurrentState ? l->getCurrentState() : l->getDrawingState();
+    const auto& rState = isCurrentState ? r->getCurrentState() : r->getDrawingState();
 
     uint32_t ls = lState.layerStack;
     uint32_t rs = rState.layerStack;
@@ -64,10 +63,10 @@ int LayerVector::do_compare(const void* lhs, const void* rhs) const
 }
 
 void LayerVector::traverseInZOrder(StateSet stateSet, const Visitor& visitor) const {
+    const bool isCurrentState = stateSet == StateSet::Current;
     for (size_t i = 0; i < size(); i++) {
         const auto& layer = (*this)[i];
-        auto& state = (stateSet == StateSet::Current) ? layer->getCurrentState()
-                                                      : layer->getDrawingState();
+        auto& state = isCurrentState ? layer->getCurrentState() : layer->getDrawingState();
         if (state.isRelativeOf) {
             continue;
         }
@@ -76,10 +75,10 @@ void LayerVector::traverseInZOrder(StateSet stateSet, const Visitor& visitor) co
 }
 
 void LayerVector::traverseInReverseZOrder(StateSet stateSet, const Visitor& visitor) const {
+    const bool isCurrentState = stateSet == StateSet::Current;
     for (auto i = static_cast<int64_t>(size()) - 1; i >= 0; i--) {
         const auto& layer = (*this)[i];
-        auto& state = (stateSet == StateSet::Current) ? layer->getCurrentState()
-                                                      : layer->getDrawingState();
+        auto& state = isCurrentState ? layer->getCurrentState() : layer->getDrawingState();
         if (state.isRelativeOf) {
             continue;
         }
