@@ -51,7 +51,7 @@ public:
     // Execute blur passes, rendering to offscreen texture.
     status_t prepare();
     // Render blur to the bound framebuffer (screen).
-    status_t render(size_t layers, int currentLayer);
+    status_t render(bool multiPass);
 
 private:
     uint32_t mRadius;
@@ -59,8 +59,6 @@ private:
     string getVertexShader() const;
     string getFragmentShader() const;
     string getMixFragShader() const;
-    string getDitherMixVertShader() const;
-    string getDitherMixFragShader() const;
 
     GLESRenderEngine& mEngine;
     // Frame buffer holding the composited background.
@@ -68,8 +66,6 @@ private:
     // Frame buffers holding the blur passes.
     GLFramebuffer mPingFbo;
     GLFramebuffer mPongFbo;
-    // Frame buffer holding the dither noise pattern.
-    GLFramebuffer mDitherFbo;
     uint32_t mDisplayWidth = 0;
     uint32_t mDisplayHeight = 0;
     uint32_t mDisplayX = 0;
@@ -86,15 +82,6 @@ private:
     GLuint mMBlurOpacityLoc;
     GLuint mMBlurTextureLoc;
     GLuint mMCompositionTextureLoc;
-
-    GenericProgram mDitherMixProgram;
-    GLuint mDPosLoc;
-    GLuint mDUvLoc;
-    GLuint mDNoiseUvScaleLoc;
-    GLuint mDBlurOpacityLoc;
-    GLuint mDBlurTextureLoc;
-    GLuint mDDitherTextureLoc;
-    GLuint mDCompositionTextureLoc;
 
     GenericProgram mBlurProgram;
     GLuint mBPosLoc;
