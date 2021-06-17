@@ -79,8 +79,8 @@ private:
     GenericProgram mMixProgram;
     GLuint mMPosLoc;
     GLuint mMUvLoc;
-    GLuint mMBlurOpacityLoc;
-    GLuint mMBlurTextureLoc;
+    GLuint mMMixLoc;
+    GLuint mMTextureLoc;
     GLuint mMCompositionTextureLoc;
 
     GenericProgram mBlurProgram;
