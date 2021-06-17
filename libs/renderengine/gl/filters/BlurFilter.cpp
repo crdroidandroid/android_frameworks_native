@@ -41,11 +41,15 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
         mDitherMixProgram(engine),
         mBlurProgram(engine) {
     mMixProgram.compile(getMixVertShader(), getMixFragShader());
+    mMPosLoc = mMixProgram.getAttributeLocation("aPosition");
+    mMUvLoc = mMixProgram.getAttributeLocation("aUV");
     mMBlurTextureLoc = mMixProgram.getUniformLocation("uBlurTexture");
     mMCompositionTextureLoc = mMixProgram.getUniformLocation("uCompositionTexture");
     mMBlurOpacityLoc = mMixProgram.getUniformLocation("uBlurOpacity");
 
     mDitherMixProgram.compile(getDitherMixVertShader(), getDitherMixFragShader());
+    mDPosLoc = mDitherMixProgram.getAttributeLocation("aPosition");
+    mDUvLoc = mDitherMixProgram.getAttributeLocation("aUV");
     mDNoiseUvScaleLoc = mDitherMixProgram.getUniformLocation("uNoiseUVScale");
     mDBlurTextureLoc = mDitherMixProgram.getUniformLocation("uBlurTexture");
     mDDitherTextureLoc = mDitherMixProgram.getUniformLocation("uDitherTexture");
@@ -56,6 +60,8 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
                                GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE);
 
     mBlurProgram.compile(getBlurVertShader(), getBlurFragShader());
+    mBPosLoc = mBlurProgram.getAttributeLocation("aPosition");
+    mBUvLoc = mBlurProgram.getAttributeLocation("aUV");
     mBTextureLoc = mBlurProgram.getUniformLocation("uTexture");
     mBOffsetLoc = mBlurProgram.getUniformLocation("uOffset");
 
@@ -70,6 +76,20 @@ BlurFilter::BlurFilter(GLESRenderEngine& engine)
     mBlurProgram.useProgram();
     glUniform1i(mBTextureLoc, 0);
     glUseProgram(0);
+
+    static constexpr auto size = 2.0f;
+    static constexpr auto translation = 1.0f;
+    const GLfloat vboData[] = {
+        // Vertex data
+        translation - size, -translation - size,
+        translation - size, -translation + size,
+        translation + size, -translation + size,
+        // UV data
+        0.0f, 0.0f - translation,
+        0.0f, size - translation,
+        size, size - translation
+    };
+    mMeshBuffer.allocateBuffers(vboData, 12 /* size */);
 }
 
 status_t BlurFilter::setAsDrawTarget(const DisplaySettings& display, uint32_t radius) {
@@ -126,7 +146,17 @@ status_t BlurFilter::setAsDrawTarget(const DisplaySettings& display, uint32_t ra
     return NO_ERROR;
 }
 
-void BlurFilter::drawMesh() {
+void BlurFilter::drawMesh(GLuint uv, GLuint position) {
+
+    glEnableVertexAttribArray(uv);
+    glEnableVertexAttribArray(position);
+    mMeshBuffer.bind();
+    glVertexAttribPointer(position, 2 /* size */, GL_FLOAT, GL_FALSE,
+                          2 * sizeof(GLfloat) /* stride */, 0 /* offset */);
+    glVertexAttribPointer(uv, 2 /* size */, GL_FLOAT, GL_FALSE, 0 /* stride */,
+                          (GLvoid*)(6 * sizeof(GLfloat)) /* offset */);
+    mMeshBuffer.unbind();
+
     // draw mesh
     glDrawArrays(GL_TRIANGLES, 0 /* first */, 3 /* count */);
 }
@@ -170,7 +200,7 @@ status_t BlurFilter::prepare() {
         glBindTexture(GL_TEXTURE_2D, read->getTextureName());
         glUniform2f(mBOffsetLoc, stepX * i, stepY * i);
 
-        drawMesh();
+        drawMesh(mBUvLoc, mBPosLoc);
 
         // Swap buffers for next iteration
         std::swap(read, draw);
@@ -205,11 +235,11 @@ status_t BlurFilter::render(size_t layers, int currentLayer) {
     if (currentLayer == layers - 1) {
         mDitherMixProgram.useProgram();
         glUniform1f(mDBlurOpacityLoc, opacity);
-        drawMesh();
+        drawMesh(mDUvLoc, mDPosLoc);
     } else {
         mMixProgram.useProgram();
         glUniform1f(mMBlurOpacityLoc, opacity);
-        drawMesh();
+        drawMesh(mMUvLoc, mMPosLoc);
     }
 
     glUseProgram(0);
@@ -224,12 +254,14 @@ string BlurFilter::getBlurVertShader() const {
 
         uniform vec2 uOffset;
 
+        in vec2 aPosition;
+        in vec2 aUV;
         out vec2 vUV;
         out vec2 vBlurTaps[4];
 
         void main() {
-            vUV = vec2((gl_VertexID == 2) ? 2.0 : 0.0, (gl_VertexID == 1) ? 2.0 : 0.0);
-            gl_Position = vec4(vUV * 2.0 - 1.0, 1.0, 1.0);
+            vUV = aUV;
+            gl_Position = vec4(aPosition, 0.0, 1.0);
 
             vBlurTaps[0] = vUV + vec2( uOffset.x,  uOffset.y);
             vBlurTaps[1] = vUV + vec2( uOffset.x, -uOffset.y);
@@ -265,11 +297,13 @@ string BlurFilter::getMixVertShader() const {
     return R"SHADER(#version 310 es
         precision mediump float;
 
+        in vec2 aPosition;
+        in vec2 aUV;
         out vec2 vUV;
 
         void main() {
-            vUV = vec2((gl_VertexID == 2) ? 2.0 : 0.0, (gl_VertexID == 1) ? 2.0 : 0.0);
-            gl_Position = vec4(vUV * 2.0 - 1.0, 1.0, 1.0);
+            vUV = aUV;
+            gl_Position = vec4(aPosition, 0.0, 1.0);
         }
     )SHADER";
 }
@@ -300,14 +334,15 @@ string BlurFilter::getDitherMixVertShader() const {
 
         uniform vec2 uNoiseUVScale;
 
+        in vec2 aPosition;
+        in vec2 aUV;
         out vec2 vUV;
         out vec2 vNoiseUV;
 
         void main() {
-            vUV = vec2((gl_VertexID == 2) ? 2.0 : 0.0, (gl_VertexID == 1) ? 2.0 : 0.0);
-            gl_Position = vec4(vUV * 2.0 - 1.0, 1.0, 1.0);
-
-            vNoiseUV = vUV * uNoiseUVScale;
+            vUV = aUV;
+            vNoiseUV = aUV * uNoiseUVScale;
+            gl_Position = vec4(aPosition, 0.0, 1.0);
         }
     )SHADER";
 }
