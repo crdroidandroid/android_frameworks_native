@@ -56,9 +56,8 @@ public:
 private:
     uint32_t mRadius;
     void drawMesh(GLuint uv, GLuint position);
-    string getBlurVertShader() const;
-    string getBlurFragShader() const;
-    string getMixVertShader() const;
+    string getVertexShader() const;
+    string getFragmentShader() const;
     string getMixFragShader() const;
     string getDitherMixVertShader() const;
     string getDitherMixFragShader() const;
