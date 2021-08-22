@@ -101,9 +101,6 @@ cc_library {
                 "libgui_window_info_static",
             ],
 
-            sanitize: {
-                misc_undefined: ["integer"],
-            },
         },
         host: {
             shared: {
