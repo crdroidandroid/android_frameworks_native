@@ -178,34 +178,14 @@ void RenderEngineThreaded::dump(std::string& result) {
 
 void RenderEngineThreaded::genTextures(size_t count, uint32_t* names) {
     ATRACE_CALL();
-    std::promise<void> resultPromise;
-    std::future<void> resultFuture = resultPromise.get_future();
-    {
-        std::lock_guard lock(mThreadMutex);
-        mFunctionCalls.push([&resultPromise, count, names](renderengine::RenderEngine& instance) {
-            ATRACE_NAME("REThreaded::genTextures");
-            instance.genTextures(count, names);
-            resultPromise.set_value();
-        });
-    }
-    mCondition.notify_one();
-    resultFuture.wait();
+    // In practice, RenderEngineThreaded is only ever used with SkiaRenderEngine, which does not
+    // implement this method, so do nothing.
 }
 
 void RenderEngineThreaded::deleteTextures(size_t count, uint32_t const* names) {
     ATRACE_CALL();
-    std::promise<void> resultPromise;
-    std::future<void> resultFuture = resultPromise.get_future();
-    {
-        std::lock_guard lock(mThreadMutex);
-        mFunctionCalls.push([&resultPromise, count, &names](renderengine::RenderEngine& instance) {
-            ATRACE_NAME("REThreaded::deleteTextures");
-            instance.deleteTextures(count, names);
-            resultPromise.set_value();
-        });
-    }
-    mCondition.notify_one();
-    resultFuture.wait();
+    // In practice, RenderEngineThreaded is only ever used with SkiaRenderEngine, which does not
+    // implement this method, so do nothing.
 }
 
 void RenderEngineThreaded::mapExternalTextureBuffer(const sp<GraphicBuffer>& buffer,
