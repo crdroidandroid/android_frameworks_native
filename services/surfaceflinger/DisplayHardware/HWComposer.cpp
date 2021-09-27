@@ -532,6 +532,7 @@ status_t HWComposer::presentAndGetReleaseFences(
     }
 
     if (displayData.validateWasSkipped) {
+        displayData.validateWasSkipped = false;
         // explicitly flush all pending commands
         auto error = static_cast<hal::Error>(mComposer->executeCommands());
         RETURN_IF_HWC_ERROR_FOR("executeCommands", error, displayId, UNKNOWN_ERROR);
