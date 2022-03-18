@@ -30,6 +30,7 @@
 #include <ui/GraphicBufferMapper.h>
 #include <ui/PixelFormat.h>
 #include <ui/Rect.h>
+#include <ui/GraphicTypes.h>
 #include <utils/Flattenable.h>
 #include <utils/RefBase.h>
 
@@ -166,6 +167,10 @@ public:
     uint32_t getLayerCount() const      { return static_cast<uint32_t>(layerCount); }
     Rect getBounds() const              { return Rect(width, height); }
     uint64_t getId() const              { return mId; }
+
+    status_t getDataspace(ui::Dataspace* outDataspace){
+        return mBufferMapper.getDataspace(handle, outDataspace);
+    }
 
     uint32_t getGenerationNumber() const { return mGenerationNumber; }
     void setGenerationNumber(uint32_t generation) {
