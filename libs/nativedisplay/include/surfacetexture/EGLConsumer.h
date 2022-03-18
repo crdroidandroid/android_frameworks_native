@@ -21,6 +21,7 @@
 #include <gui/BufferQueueDefs.h>
 #include <ui/FenceTime.h>
 #include <ui/GraphicBuffer.h>
+#include <ui/GraphicTypes.h>
 #include <utils/Mutex.h>
 
 namespace android {
@@ -198,7 +199,7 @@ protected:
 
         // mGraphicBuffer is the buffer that was used to create this image.
         sp<GraphicBuffer> mGraphicBuffer;
-
+        ui::Dataspace mDataSpace;
         // mEglImage is the EGLImage created from mGraphicBuffer.
         EGLImageKHR mEglImage;
 
