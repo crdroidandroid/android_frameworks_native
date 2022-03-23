@@ -491,6 +491,13 @@ status_t HWComposer::getDeviceCompositionChanges(
 
 sp<Fence> HWComposer::getPresentFence(HalDisplayId displayId) const {
     RETURN_IF_INVALID_DISPLAY(displayId, Fence::NO_FENCE);
+
+    auto& hwcDisplay = mDisplayData.at(displayId).hwcDisplay;
+
+    if (!hwcDisplay->isConnected()) {
+        return Fence::NO_FENCE;
+    }
+
     return mDisplayData.at(displayId).lastPresentFence;
 }
 
@@ -514,6 +521,10 @@ status_t HWComposer::presentAndGetReleaseFences(
 
     auto& displayData = mDisplayData[displayId];
     auto& hwcDisplay = displayData.hwcDisplay;
+
+    if (!hwcDisplay->isConnected()) {
+        return NO_ERROR;
+    }
 
     if (displayData.validateWasSkipped) {
         // explicitly flush all pending commands
