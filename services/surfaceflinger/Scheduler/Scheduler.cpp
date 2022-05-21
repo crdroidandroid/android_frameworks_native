@@ -416,7 +416,18 @@ void Scheduler::registerLayer(Layer* layer) {
     const auto minFps = mRefreshRateConfigs.getMinRefreshRate().getFps();
     const auto maxFps = mRefreshRateConfigs.getMaxRefreshRate().getFps();
 
-    if (layer->getWindowType() == InputWindowInfo::TYPE_STATUS_BAR) {
+    const auto windowType = layer->getWindowType();
+
+    if (windowType == InputWindowInfo::TYPE_STATUS_BAR ||
+        windowType == InputWindowInfo::TYPE_SYSTEM_ALERT ||
+        windowType == InputWindowInfo::TYPE_TOAST ||
+        windowType == InputWindowInfo::TYPE_SYSTEM_DIALOG ||
+        windowType == InputWindowInfo::TYPE_KEYGUARD_DIALOG ||
+        windowType == InputWindowInfo::TYPE_INPUT_METHOD ||
+        windowType == InputWindowInfo::TYPE_INPUT_METHOD_DIALOG ||
+        windowType == InputWindowInfo::TYPE_NAVIGATION_BAR ||
+        windowType == InputWindowInfo::TYPE_VOLUME_OVERLAY ||
+        windowType == InputWindowInfo::TYPE_NAVIGATION_BAR_PANEL) {
         mLayerHistory->registerLayer(layer, minFps, maxFps,
                                      scheduler::LayerHistory::LayerVoteType::NoVote);
     } else if (!mUseContentDetection) {
