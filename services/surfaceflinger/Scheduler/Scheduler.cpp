@@ -500,11 +500,21 @@ void Scheduler::registerLayer(Layer* layer) {
     using WindowType = gui::WindowInfo::Type;
 
     scheduler::LayerHistory::LayerVoteType voteType;
+    const auto windowType = layer->getWindowType();
 
     if (!mFeatures.test(Feature::kContentDetection) ||
-        layer->getWindowType() == WindowType::STATUS_BAR) {
+        windowType == WindowType::STATUS_BAR ||
+        windowType == WindowType::SYSTEM_ALERT ||
+        windowType == WindowType::TOAST ||
+        windowType == WindowType::SYSTEM_DIALOG ||
+        windowType == WindowType::KEYGUARD_DIALOG ||
+        windowType == WindowType::INPUT_METHOD ||
+        windowType == WindowType::INPUT_METHOD_DIALOG ||
+        windowType == WindowType::NAVIGATION_BAR ||
+        windowType == WindowType::VOLUME_OVERLAY ||
+        windowType == WindowType::NAVIGATION_BAR_PANEL) {
         voteType = scheduler::LayerHistory::LayerVoteType::NoVote;
-    } else if (layer->getWindowType() == WindowType::WALLPAPER) {
+    } else if (windowType == WindowType::WALLPAPER) {
         // Running Wallpaper at Min is considered as part of content detection.
         voteType = scheduler::LayerHistory::LayerVoteType::Min;
     } else {
