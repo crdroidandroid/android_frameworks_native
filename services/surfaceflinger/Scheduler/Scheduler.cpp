@@ -431,6 +431,10 @@ void Scheduler::registerLayer(Layer* layer) {
         windowType == InputWindowInfo::TYPE_NAVIGATION_BAR_PANEL) {
         mLayerHistory->registerLayer(layer, minFps, maxFps,
                                      scheduler::LayerHistory::LayerVoteType::NoVote);
+    } else if (windowType == InputWindowInfo::TYPE_NOTIFICATION_SHADE) {
+        // Enforce max refresh rate for notification pulldown
+        mLayerHistory->registerLayer(layer, minFps, maxFps,
+                                     scheduler::LayerHistory::LayerVoteType::Max);
     } else if (windowType == InputWindowInfo::TYPE_WALLPAPER) {
         // Running Wallpaper at Min is considered as part of content detection.
         mLayerHistory->registerLayer(layer, minFps, maxFps,
