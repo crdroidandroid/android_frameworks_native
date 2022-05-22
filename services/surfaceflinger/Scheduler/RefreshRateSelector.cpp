@@ -474,9 +474,8 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
     const auto anchorGroup =
             seamedFocusedLayers > 0 ? activeMode.getGroup() : defaultMode->getGroup();
 
-    // Consider the touch event if there are no Explicit* layers. Otherwise wait until after we've
-    // selected a refresh rate to see if we should apply touch boost.
-    if (signals.touch && !hasExplicitVoteLayers) {
+    // Touch boost whenever possible as we opportunistically enter idle aggressively
+    if (signals.touch) {
         ALOGV("Touch Boost");
         const auto ranking = rankFrameRates(anchorGroup, RefreshRateOrder::Descending);
         ATRACE_FORMAT_INSTANT("%s (Touch Boost)",
