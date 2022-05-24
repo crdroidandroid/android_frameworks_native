@@ -180,9 +180,24 @@ status_t Surface::getDisplayRefreshCycleDuration(nsecs_t* outRefreshDuration) {
     ATRACE_CALL();
 
     gui::DisplayStatInfo stats;
+    ui::DynamicDisplayInfo info;
+    ui::DisplayMode mode;
     binder::Status status = composerServiceAIDL()->getDisplayStats(nullptr, &stats);
     if (!status.isOk()) {
-        return status.transactionError();
+        const sp<IBinder> display = ComposerServiceAIDL::getInstance().getInternalDisplayToken();
+        if (display == nullptr) {
+            return NAME_NOT_FOUND;
+        }
+        if (status_t err = composerService()->getDynamicDisplayInfo(display, &info);
+            err != NO_ERROR) {
+            return err;
+        }
+        if (const auto activeMode = info.getActiveDisplayMode()) {
+            mode = *activeMode;
+        }
+
+        *outRefreshDuration = (1.0/mode.refreshRate * 1000000000); // in neno second
+        return NO_ERROR;
     }
 
     *outRefreshDuration = stats.vsyncPeriod;
