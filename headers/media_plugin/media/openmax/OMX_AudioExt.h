@@ -78,6 +78,31 @@ typedef struct OMX_AUDIO_PARAM_ANDROID_AC4TYPE {
                                         variable or unknown sampling rate. */
 } OMX_AUDIO_PARAM_ANDROID_AC4TYPE;
 
+#define OMX_LUT_BUFF_SZ 256
+#define OMX_B_C_SZ 80
+typedef struct OMX_AUDIO_PARAM_ANDROID_AC4TBL {
+    OMX_U32 nSize;
+    OMX_U8 seedA;
+    OMX_U8 seedB;
+    OMX_U8 seedC;
+
+    OMX_U8 idA;
+    OMX_U8 idB;
+    OMX_U8 idC;
+
+    OMX_U8 maskA;
+    OMX_U8 maskB;
+    OMX_U8 maskC;
+
+    OMX_U32 sizeA;
+    OMX_U32 sizeB;
+    OMX_U32 sizeC;
+
+    OMX_U8 bufferA[OMX_LUT_BUFF_SZ];
+    OMX_U8 bufferB[OMX_B_C_SZ];
+    OMX_U8 bufferC[OMX_B_C_SZ];
+} OMX_AUDIO_PARAM_ANDROID_AC4TBL;
+
 typedef struct OMX_AUDIO_PARAM_ANDROID_OPUSTYPE {
     OMX_U32 nSize;            /**< size of the structure in bytes */
     OMX_VERSIONTYPE nVersion; /**< OMX specification version information */
