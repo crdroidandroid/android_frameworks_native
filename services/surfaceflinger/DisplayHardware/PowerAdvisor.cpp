@@ -79,7 +79,8 @@ PowerAdvisor::PowerAdvisor(SurfaceFlinger& flinger)
       : mPowerHal(std::make_unique<power::PowerHalController>()), mFlinger(flinger) {
     if (getUpdateTimeout() > 0ms) {
         mScreenUpdateTimer.emplace("UpdateImminentTimer", getUpdateTimeout(),
-                                   /* resetCallback */ nullptr,
+                                   /* resetCallback */
+                                   [this] { mSendUpdateImminent.store(false); },
                                    /* timeoutCallback */
                                    [this] {
                                        while (true) {
