@@ -84,7 +84,8 @@ void traceExpensiveRendering(bool enabled) {
 PowerAdvisor::PowerAdvisor(SurfaceFlinger& flinger) : mFlinger(flinger) {
     if (getUpdateTimeout() > 0ms) {
         mScreenUpdateTimer.emplace("UpdateImminentTimer", getUpdateTimeout(),
-                                   /* resetCallback */ nullptr,
+                                   /* resetCallback */
+                                   [this] { mSendUpdateImminent.store(false); },
                                    /* timeoutCallback */
                                    [this] {
                                        while (true) {
