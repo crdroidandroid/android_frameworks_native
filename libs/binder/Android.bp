@@ -204,6 +204,10 @@ cc_library {
         misc_undefined: ["integer"],
     },
 
+    lto: {
+        thin: true,
+    },
+
     tidy: true,
     tidy_flags: [
         // Only check our headers
