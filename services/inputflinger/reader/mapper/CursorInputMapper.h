@@ -51,6 +51,27 @@ private:
     void clearRelativeAxes();
 };
 
+/* Keeps track of cursor movements. */
+class CursorPositionAccumulator {
+public:
+    CursorPositionAccumulator();
+    void reset(InputDeviceContext& deviceContext);
+
+    void process(const RawEvent* rawEvent);
+    void finishSync();
+
+    inline int32_t getX() const { return mX; }
+    inline int32_t getY() const { return mY; }
+    inline bool isSupported() const { return supported; }
+
+private:
+    int32_t mX;
+    int32_t mY;
+    bool supported;
+
+    void clearPos();
+};
+
 class CursorInputMapper : public InputMapper {
 public:
     explicit CursorInputMapper(InputDeviceContext& deviceContext);
@@ -94,6 +115,7 @@ private:
 
     CursorButtonAccumulator mCursorButtonAccumulator;
     CursorMotionAccumulator mCursorMotionAccumulator;
+    CursorPositionAccumulator mCursorPositionAccumulator;
     CursorScrollAccumulator mCursorScrollAccumulator;
 
     int32_t mSource;

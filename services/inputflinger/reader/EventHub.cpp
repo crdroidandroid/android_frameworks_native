@@ -332,6 +332,15 @@ ftl::Flags<InputDeviceClass> getAbsAxisUsage(int32_t axis,
         }
     }
 
+    // Absolute mouse support
+    if (deviceClasses.test(InputDeviceClass::CURSOR)) {
+        switch (axis) {
+            case ABS_X:
+            case ABS_Y:
+                return InputDeviceClass::CURSOR;
+        }
+    }
+
     if (deviceClasses.test(InputDeviceClass::SENSOR)) {
         switch (axis) {
             case ABS_X:

@@ -64,6 +64,41 @@ void CursorMotionAccumulator::finishSync() {
     clearRelativeAxes();
 }
 
+// --- CursorPositionAccumulator ---
+
+CursorPositionAccumulator::CursorPositionAccumulator() {
+    clearPos();
+    supported = false;
+}
+
+void CursorPositionAccumulator::reset(InputDeviceContext& deviceContext) {
+    clearPos();
+}
+
+void CursorPositionAccumulator::clearPos() {
+    mX = -1;
+    mY = -1;
+}
+
+void CursorPositionAccumulator::process(const RawEvent* rawEvent) {
+    if (rawEvent->type == EV_ABS) {
+        switch (rawEvent->code) {
+            case ABS_X:
+                supported = true;
+                mX = rawEvent->value;
+                break;
+            case ABS_Y:
+                supported = true;
+                mY = rawEvent->value;
+                break;
+        }
+    }
+}
+
+void CursorPositionAccumulator::finishSync() {
+    clearPos();
+}
+
 // --- CursorInputMapper ---
 
 CursorInputMapper::CursorInputMapper(InputDeviceContext& deviceContext)
@@ -279,6 +314,7 @@ void CursorInputMapper::reset(nsecs_t when) {
 
     mCursorButtonAccumulator.reset(getDeviceContext());
     mCursorMotionAccumulator.reset(getDeviceContext());
+    mCursorPositionAccumulator.reset(getDeviceContext());
     mCursorScrollAccumulator.reset(getDeviceContext());
 
     InputMapper::reset(when);
@@ -287,6 +323,7 @@ void CursorInputMapper::reset(nsecs_t when) {
 void CursorInputMapper::process(const RawEvent* rawEvent) {
     mCursorButtonAccumulator.process(rawEvent);
     mCursorMotionAccumulator.process(rawEvent);
+    mCursorPositionAccumulator.process(rawEvent);
     mCursorScrollAccumulator.process(rawEvent);
 
     if (rawEvent->type == EV_SYN && rawEvent->code == SYN_REPORT) {
@@ -327,6 +364,13 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
     // Rotate delta according to orientation.
     rotateDelta(mOrientation, &deltaX, &deltaY);
 
+    float absX = mCursorPositionAccumulator.getX() * mXScale;
+    float absY = mCursorPositionAccumulator.getY() * mYScale;
+    bool movedAbs = mCursorPositionAccumulator.isSupported() && absX > 0 && absY > 0;
+
+    // Rotate delta according to orientation.
+    rotateDelta(mOrientation, &absX, &absY);
+
     // Move the pointer.
     PointerProperties pointerProperties;
     pointerProperties.clear();
@@ -348,11 +392,13 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
     float xCursorPosition = AMOTION_EVENT_INVALID_CURSOR_POSITION;
     float yCursorPosition = AMOTION_EVENT_INVALID_CURSOR_POSITION;
     if (mSource == AINPUT_SOURCE_MOUSE) {
-        if (moved || scrolled || buttonsChanged) {
+        if (moved || movedAbs || scrolled || buttonsChanged) {
             mPointerController->setPresentation(PointerControllerInterface::Presentation::POINTER);
 
             if (moved) {
                 mPointerController->move(deltaX, deltaY);
+            } else if (movedAbs) {
+                mPointerController->setPosition(absX, absY);
             }
 
             if (buttonsChanged) {
@@ -383,7 +429,7 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
     // the device in your pocket.
     // TODO: Use the input device configuration to control this behavior more finely.
     uint32_t policyFlags = 0;
-    if ((buttonsPressed || moved || scrolled) && getDeviceContext().isExternal()) {
+    if ((buttonsPressed || moved || movedAbs || scrolled) && getDeviceContext().isExternal()) {
         policyFlags |= POLICY_FLAG_WAKE;
     }
 
@@ -392,7 +438,7 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
                          mSource, *mDisplayId, policyFlags, lastButtonState, currentButtonState);
 
     // Send motion event.
-    if (downChanged || moved || scrolled || buttonsChanged) {
+    if (downChanged || moved || movedAbs || scrolled || buttonsChanged) {
         int32_t metaState = getContext()->getGlobalMetaState();
         int32_t buttonState = lastButtonState;
         int32_t motionEventAction;
