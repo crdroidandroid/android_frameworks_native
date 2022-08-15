@@ -418,7 +418,8 @@ void Scheduler::registerLayer(Layer* layer) {
 
     const auto windowType = layer->getWindowType();
 
-    if (windowType == InputWindowInfo::TYPE_STATUS_BAR ||
+    if (!mUseContentDetection ||
+        windowType == InputWindowInfo::TYPE_STATUS_BAR ||
         windowType == InputWindowInfo::TYPE_SYSTEM_ALERT ||
         windowType == InputWindowInfo::TYPE_TOAST ||
         windowType == InputWindowInfo::TYPE_SYSTEM_DIALOG ||
@@ -430,12 +431,10 @@ void Scheduler::registerLayer(Layer* layer) {
         windowType == InputWindowInfo::TYPE_NAVIGATION_BAR_PANEL) {
         mLayerHistory->registerLayer(layer, minFps, maxFps,
                                      scheduler::LayerHistory::LayerVoteType::NoVote);
-    } else if (!mUseContentDetection) {
-        // If the content detection feature is off, all layers are registered at Max. We still keep
-        // the layer history, since we use it for other features (like Frame Rate API), so layers
-        // still need to be registered.
+    } else if (windowType == InputWindowInfo::TYPE_WALLPAPER) {
+        // Running Wallpaper at Min is considered as part of content detection.
         mLayerHistory->registerLayer(layer, minFps, maxFps,
-                                     scheduler::LayerHistory::LayerVoteType::Max);
+                                     scheduler::LayerHistory::LayerVoteType::Min);
     } else if (!mUseContentDetectionV2) {
         // In V1 of content detection, all layers are registered as Heuristic (unless it's
         // wallpaper).
@@ -445,14 +444,8 @@ void Scheduler::registerLayer(Layer* layer) {
         mLayerHistory->registerLayer(layer, minFps, highFps,
                                      scheduler::LayerHistory::LayerVoteType::Heuristic);
     } else {
-        if (layer->getWindowType() == InputWindowInfo::TYPE_WALLPAPER) {
-            // Running Wallpaper at Min is considered as part of content detection.
-            mLayerHistory->registerLayer(layer, minFps, maxFps,
-                                         scheduler::LayerHistory::LayerVoteType::Min);
-        } else {
-            mLayerHistory->registerLayer(layer, minFps, maxFps,
-                                         scheduler::LayerHistory::LayerVoteType::Heuristic);
-        }
+        mLayerHistory->registerLayer(layer, minFps, maxFps,
+                                     scheduler::LayerHistory::LayerVoteType::Heuristic);
     }
 }
 
