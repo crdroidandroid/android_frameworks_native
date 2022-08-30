@@ -1014,7 +1014,9 @@ private:
         return BATTERY_STATUS;
     }
 
-    const std::vector<int32_t> getRawBatteryIds(int32_t deviceId) { return {}; }
+    const std::vector<int32_t> getRawBatteryIds(int32_t deviceId) override {
+        return {DEFAULT_BATTERY};
+    }
 
     std::optional<RawBatteryInfo> getRawBatteryInfo(int32_t deviceId, int32_t batteryId) {
         return std::nullopt;
