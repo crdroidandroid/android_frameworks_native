@@ -462,6 +462,8 @@ protected:
     // queue operation.  There is no HDR metadata by default.
     HdrMetadata mHdrMetadata;
 
+    uint32_t mHdrMetaIsSet{0};
+
     // mCrop is the crop rectangle that will be used for the next buffer
     // that gets queued. It is set by calling setCrop.
     Rect mCrop;
