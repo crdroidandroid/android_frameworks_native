@@ -111,6 +111,9 @@ public:
     // See IGraphicBufferConsumer::discardFreeBuffers
     status_t discardFreeBuffers();
 
+    // See IGraphicBufferConsumer::setConsumerCanWait
+    status_t setConsumerCanWait(bool canWait);
+
 private:
     ConsumerBase(const ConsumerBase&);
     void operator=(const ConsumerBase&);
