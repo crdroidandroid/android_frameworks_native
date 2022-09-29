@@ -218,8 +218,8 @@ status_t BufferQueueProducer::setAsyncMode(bool async) {
         }
 
         if ((mCore->mMaxAcquiredBufferCount + mCore->mMaxDequeuedBufferCount +
-                (async || mCore->mDequeueBufferCannotBlock ? 1 : 0)) >
-                mCore->mMaxBufferCount) {
+             mCore->getExtraBufferCountLocked(async, mCore->mDequeueBufferCannotBlock)) >
+            mCore->mMaxBufferCount) {
             BQ_LOGE("setAsyncMode(%d): this call would cause the "
                     "maxBufferCount (%d) to be exceeded (maxAcquired %d "
                     "maxDequeued %d mDequeueBufferCannotBlock %d)", async,
@@ -960,10 +960,31 @@ status_t BufferQueueProducer::queueBuffer(int slot,
         } else {
             // When the queue is not empty, we need to look at the last buffer
             // in the queue to see if we need to replace it
-            const BufferItem& last = mCore->mQueue.itemAt(
-                    mCore->mQueue.size() - 1);
-            if (last.mIsDroppable) {
+            const BufferItem& last = mCore->mQueue.itemAt(mCore->mQueue.size() - 1);
 
+            // When mConsumerCanWait is false, acquireBuffer() returns an error if
+            // the fence hasn't signaled. To prevent the producer from starving the
+            // consumer by repeatedly replacing the only buffer in the queue before
+            // the consumer can acquire it, we'll keep the oldest buffer around until
+            // it's safe to drop it.
+            //
+            // This implies that the queue can contain two elements in asynchronous
+            // mode. To account for this, getMaxBufferCountLocked() ensures that an
+            // additional slot is available if needed.
+            //
+            // Note that the async behavior is preserved by still replacing `last` if
+            // the queue contains more than one element, and by dropping the "cached"
+            // buffer if acquireBuffer() finds a more recent one with a signaled fence.
+            //
+            // This is further restricted to cases where a newly queued buffer has a
+            // valid fence (otherwise acquireBuffer is unaffected by mConsumerCanWait),
+            // and dequeue timeout isn't set (in which case mIsDroppable implies that
+            // getExtraBufferCountLocked() == 2, i.e. we are guaranteed to have enough
+            // available slots).
+            const bool keepBuffer = !mCore->mConsumerCanWait && mCore->mQueue.size() == 1 &&
+                    acquireFence->isValid() && mDequeueTimeout < 0;
+
+            if (last.mIsDroppable && !keepBuffer) {
                 if (!last.mIsStale) {
                     mSlots[last.mSlot].mBufferState.freeQueued();
 

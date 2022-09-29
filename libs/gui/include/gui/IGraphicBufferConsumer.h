@@ -278,6 +278,13 @@ public:
     // dump state into a string
     virtual status_t dumpState(const String8& prefix, String8* outResult) const = 0;
 
+    // Determines if the acquire operation is allowed to return a buffer that
+    // is not ready yet. `canWait` is true by default, and the consumer must
+    // wait on the fence before reading the buffer. Latency-sensitive clients
+    // can set it to false to avoid delaying the submission of other GPU
+    // commands.
+    virtual status_t setConsumerCanWait(bool /*canWait*/) = 0;
+
     // Provide backwards source compatibility
     void dumpState(String8& result, const char* prefix) {
         String8 returned;

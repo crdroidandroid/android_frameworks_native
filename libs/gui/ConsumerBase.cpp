@@ -363,6 +363,15 @@ status_t ConsumerBase::discardFreeBuffers() {
     return OK;
 }
 
+status_t ConsumerBase::setConsumerCanWait(bool canWait) {
+    Mutex::Autolock _l(mMutex);
+    if (mAbandoned) {
+        CB_LOGE("setConsumerCanWait: ConsumerBase is abandoned!");
+        return NO_INIT;
+    }
+    return mConsumer->setConsumerCanWait(canWait);
+}
+
 void ConsumerBase::dumpState(String8& result) const {
     dumpState(result, "");
 }

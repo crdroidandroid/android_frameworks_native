@@ -152,6 +152,9 @@ public:
     // dump our state in a String
     status_t dumpState(const String8& prefix, String8* outResult) const override;
 
+    // See IGraphicBufferConsumer::setConsumerCanWait
+    virtual status_t setConsumerCanWait(bool canWait) override;
+
     // Functions required for backwards compatibility.
     // These will be modified/renamed in IGraphicBufferConsumer and will be
     // removed from this class at that time. See b/13306289.

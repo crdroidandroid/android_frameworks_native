@@ -99,6 +99,7 @@ private:
     //     mMaxBufferCount
     //     mAsyncMode
     //     mDequeueBufferCannotBlock
+    //     mConsumerCanWait
     //
     // Any time one of these member variables is changed while a producer is
     // connected, mDequeueCondition must be broadcast.
@@ -109,6 +110,15 @@ private:
     // mDequeueBufferCannotBlock.
     int getMaxBufferCountLocked(bool asyncMode,
             bool dequeueBufferCannotBlock, int maxBufferCount) const;
+
+    // Helper method used by getMaxBufferCountLocked() that calculates how many
+    // additional buffers we should reserve space for. Depends on mAsyncMode,
+    // mDequeueBufferCannotBlock, and mConsumerCanWait.
+    int getExtraBufferCountLocked() const;
+
+    // This performs the same computation but uses the given arguments instead
+    // of the corresponding member variables.
+    int getExtraBufferCountLocked(bool asyncMode, bool dequeueBufferCannotBlock) const;
 
     // clearBufferSlotLocked frees the GraphicBuffer and sync resources for the
     // given slot.
@@ -357,6 +367,10 @@ private:
     // This allows the consumer to acquire an additional buffer if that buffer is not droppable and
     // will eventually be released or acquired by the consumer.
     bool mAllowExtraAcquire = false;
+
+    // If false, acquireBuffer() will return NO_BUFFER_AVAILABLE if the front of the queue
+    // isn't ready yet (fence hasn't been signaled). Defaults to true.
+    bool mConsumerCanWait;
 }; // class BufferQueueCore
 
 } // namespace android

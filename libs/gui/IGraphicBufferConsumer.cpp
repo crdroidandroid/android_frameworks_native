@@ -52,7 +52,8 @@ enum class Tag : uint32_t {
     GET_OCCUPANCY_HISTORY,
     DISCARD_FREE_BUFFERS,
     DUMP_STATE,
-    LAST = DUMP_STATE,
+    SET_CONSUMER_CAN_WAIT,
+    LAST = SET_CONSUMER_CAN_WAIT,
 };
 
 } // Anonymous namespace
@@ -167,6 +168,11 @@ public:
         using Signature = status_t (IGraphicBufferConsumer::*)(const String8&, String8*) const;
         return callRemote<Signature>(Tag::DUMP_STATE, prefix, outResult);
     }
+
+    status_t setConsumerCanWait(bool canWait) {
+        using Signature = decltype(&IGraphicBufferConsumer::setConsumerCanWait);
+        return callRemote<Signature>(Tag::SET_CONSUMER_CAN_WAIT, canWait);
+    }
 };
 
 // Out-of-line virtual method definition to trigger vtable emission in this translation unit
@@ -224,6 +230,8 @@ status_t BnGraphicBufferConsumer::onTransact(uint32_t code, const Parcel& data, 
             using Signature = status_t (IGraphicBufferConsumer::*)(const String8&, String8*) const;
             return callLocal<Signature>(data, reply, &IGraphicBufferConsumer::dumpState);
         }
+        case Tag::SET_CONSUMER_CAN_WAIT:
+            return callLocal(data, reply, &IGraphicBufferConsumer::setConsumerCanWait);
     }
 }
 

@@ -36,6 +36,7 @@
 
 #include <gtest/gtest.h>
 
+#include <sys/eventfd.h>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -1222,6 +1223,73 @@ TEST_F(BufferQueueTest, TestProducerConnectDisconnect) {
     ASSERT_EQ(BAD_VALUE, mProducer->disconnect(NATIVE_WINDOW_API_MEDIA));
     ASSERT_EQ(OK, mProducer->disconnect(NATIVE_WINDOW_API_CPU));
     ASSERT_EQ(NO_INIT, mProducer->disconnect(NATIVE_WINDOW_API_CPU));
+}
+
+TEST_F(BufferQueueTest, TestConsumerCannotWait) {
+    createBufferQueue();
+    sp<MockConsumer> dc(new MockConsumer);
+    ASSERT_EQ(OK, mConsumer->consumerConnect(dc, true));
+
+    ASSERT_EQ(OK, mConsumer->setMaxAcquiredBufferCount(1));
+    ASSERT_EQ(OK, mProducer->setMaxDequeuedBufferCount(1));
+    ASSERT_EQ(OK, mProducer->setAsyncMode(true));
+    ASSERT_EQ(OK, mConsumer->setConsumerCanWait(false));
+
+    IGraphicBufferProducer::QueueBufferOutput output;
+    ASSERT_EQ(OK,
+              mProducer->connect(new StubProducerListener, NATIVE_WINDOW_API_CPU, true, &output));
+
+    auto queueBuffer = [&](sp<Fence> fence, int expectedResult, int expectedSlot) {
+        int slot;
+        sp<Fence> dummyFence;
+        sp<GraphicBuffer> buffer;
+        ASSERT_EQ(expectedResult,
+                  mProducer->dequeueBuffer(&slot, &dummyFence, 0, 0, 0, 0, nullptr, nullptr));
+        ASSERT_EQ(expectedSlot, slot);
+        ASSERT_EQ(OK, mProducer->requestBuffer(slot, &buffer));
+
+        IGraphicBufferProducer::QueueBufferInput input(0, true, HAL_DATASPACE_UNKNOWN,
+                                                       Rect::INVALID_RECT,
+                                                       NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, fence);
+        ASSERT_EQ(OK, mProducer->queueBuffer(slot, input, &output));
+    };
+
+    // We need an unsignaled, but valid Fence object in this test (in order to exercise
+    // the !mConsumerCanWait code path in acquireBuffer), so we initialize it with a
+    // dummy eventfd.
+    sp<Fence> fence(new Fence(eventfd(0, 0)));
+    ASSERT_TRUE(fence->isValid());
+    ASSERT_NE(Fence::Status::Signaled, fence->getStatus());
+
+    queueBuffer(fence, IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION, 0);
+
+    // Fence hasn't been signaled, so acquireBuffer() is expected to return
+    // NO_BUFFER_AVAILABLE if mConsumerCanWait is false.
+    BufferItem item;
+    ASSERT_EQ(BufferQueue::NO_BUFFER_AVAILABLE, mConsumer->acquireBuffer(&item, 0));
+
+    // Dequeue and queue another buffer, also with an unsignaled fence.
+    fence = new Fence(eventfd(0, 0));
+    queueBuffer(fence, IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION, 1);
+    ASSERT_EQ(BufferQueue::NO_BUFFER_AVAILABLE, mConsumer->acquireBuffer(&item, 0));
+
+    // Third buffer replaces the most recently added one (async mode). Queue now
+    // contains slots 0 and 2.
+    fence = new Fence(eventfd(0, 0));
+    queueBuffer(fence, IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION, 2);
+
+    // The following operation returns an existing buffer in slot 1, which is then
+    // queued (replacing the other buffer: mQueue=[0, 1]) with NO_FENCE and can
+    // therefore be acquired by the consumer.
+    queueBuffer(Fence::NO_FENCE, OK, 1);
+    ASSERT_EQ(OK, mConsumer->acquireBuffer(&item, 0));
+    ASSERT_EQ(1, item.mSlot);
+
+    // Last acquireBuffer() operation cleared out the queue since the buffer in slot
+    // 0 was droppable. Next two operations end up obtaining buffers 0 and 2 (in the
+    // order in which they were freed).
+    queueBuffer(Fence::NO_FENCE, OK, 2);
+    queueBuffer(Fence::NO_FENCE, OK, 0);
 }
 
 } // namespace android
