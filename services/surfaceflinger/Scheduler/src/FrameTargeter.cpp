@@ -138,6 +138,10 @@ void FrameTargeter::beginFrame(const BeginFrameArgs& args, const IVsyncSource& v
     // In cases where the present fence is about to fire, give it a small grace period instead of
     // giving up on the frame.
     const int graceTimeForPresentFenceMs = [&] {
+        if (!mPropagateBackpressure) {
+            return 0;
+        }
+
         const bool considerBackpressure =
                 mBackpressureGpuComposition || !mCompositionCoverage.test(CompositionCoverage::Gpu);
 
