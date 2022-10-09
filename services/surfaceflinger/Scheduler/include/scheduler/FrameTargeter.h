@@ -127,7 +127,8 @@ public:
     FrameTargeter(PhysicalDisplayId displayId, FeatureFlags flags)
           : FrameTarget(to_string(displayId)),
             mBackpressureGpuComposition(flags.test(Feature::kBackpressureGpuComposition)),
-            mSupportsExpectedPresentTime(flags.test(Feature::kExpectedPresentTime)) {}
+            mSupportsExpectedPresentTime(flags.test(Feature::kExpectedPresentTime)),
+            mPropagateBackpressure(flags.test(Feature::kPropagateBackpressure)) {}
 
     const FrameTarget& target() const { return *this; }
 
@@ -169,6 +170,7 @@ private:
 
     const bool mBackpressureGpuComposition;
     const bool mSupportsExpectedPresentTime;
+    const bool mPropagateBackpressure;
 
     TimePoint mScheduledPresentTime;
     CompositionCoverageFlags mCompositionCoverage;
