@@ -847,13 +847,14 @@ void InputDispatcher::dispatchOnceInnerLocked(nsecs_t* nextWakeupTime) {
 
         case EventEntry::Type::KEY: {
             std::shared_ptr<KeyEntry> keyEntry = std::static_pointer_cast<KeyEntry>(mPendingEvent);
-            if (isAppSwitchDue) {
-                if (isAppSwitchKeyEvent(*keyEntry)) {
+            if (isAppSwitchKeyEvent(*keyEntry)) {
+                if (mAppSwitchDueTime != LONG_LONG_MAX &&
+                    keyEntry->action == AMOTION_EVENT_ACTION_UP) {
                     resetPendingAppSwitchLocked(true);
                     isAppSwitchDue = false;
-                } else if (dropReason == DropReason::NOT_DROPPED) {
-                    dropReason = DropReason::APP_SWITCH;
                 }
+            } else if (isAppSwitchDue && dropReason == DropReason::NOT_DROPPED) {
+                dropReason = DropReason::APP_SWITCH;
             }
             if (dropReason == DropReason::NOT_DROPPED && isStaleEvent(currentTime, *keyEntry)) {
                 dropReason = DropReason::STALE;
