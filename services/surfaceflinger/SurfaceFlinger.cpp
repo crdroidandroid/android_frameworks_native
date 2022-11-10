@@ -1967,8 +1967,11 @@ void SurfaceFlinger::setVsyncEnabled(bool enabled) {
 }
 
 SurfaceFlinger::FenceWithFenceTime SurfaceFlinger::previousFrameFence() {
-     return mVsyncModulator->getVsyncConfig().sfOffset >= 0 ? mPreviousPresentFences[0]
-                                                           : mPreviousPresentFences[1];
+    const auto now = systemTime();
+    const auto vsyncPeriod = mScheduler->getDisplayStatInfo(now).vsyncPeriod;
+    const bool expectedPresentTimeIsTheNextVsync = mExpectedPresentTime - now <= vsyncPeriod;
+    return expectedPresentTimeIsTheNextVsync ? mPreviousPresentFences[0]
+                                             : mPreviousPresentFences[1];
 }
 
 bool SurfaceFlinger::previousFramePending(int graceTimeMs) {
