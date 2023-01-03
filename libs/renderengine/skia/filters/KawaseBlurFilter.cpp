@@ -19,6 +19,7 @@
 #include "KawaseBlurFilter.h"
 #include <SkCanvas.h>
 #include <SkPaint.h>
+#include "SkImageFilters.h"
 #include <SkRRect.h>
 #include <SkRuntimeEffect.h>
 #include <SkSize.h>
@@ -31,7 +32,7 @@ namespace android {
 namespace renderengine {
 namespace skia {
 
-KawaseBlurFilter::KawaseBlurFilter(): BlurFilter() {
+KawaseBlurFilter::KawaseBlurFilter() : BlurFilter() {
     SkString blurString(R"(
         uniform shader child;
         uniform float in_blurOffset;
@@ -56,41 +57,53 @@ KawaseBlurFilter::KawaseBlurFilter(): BlurFilter() {
 sk_sp<SkImage> KawaseBlurFilter::generate(GrRecordingContext* context, const uint32_t blurRadius,
                                           const sk_sp<SkImage> input, const SkRect& blurRect)
     const {
-    // Kawase is an approximation of Gaussian, but it behaves differently from it.
-    // A radius transformation is required for approximating them, and also to introduce
-    // non-integer steps, necessary to smoothly interpolate large radii.
-    float tmpRadius = (float)blurRadius / 2.0f;
+    float tmpRadius = (float)blurRadius / 6.0f;
     float numberOfPasses = std::min(kMaxPasses, (uint32_t)ceil(tmpRadius));
     float radiusByPasses = tmpRadius / (float)numberOfPasses;
 
-    // create blur surface with the bit depth and colorspace of the original surface
-    SkImageInfo scaledInfo = input->imageInfo().makeWH(std::ceil(blurRect.width() * kInputScale),
-                                                       std::ceil(blurRect.height() * kInputScale));
-
-    // For sampling Skia's API expects the inverse of what logically seems appropriate. In this
-    // case you might expect Translate(blurRect.fLeft, blurRect.fTop) X Scale(kInverseInputScale)
-    // but instead we must do the inverse.
     SkMatrix blurMatrix = SkMatrix::Translate(-blurRect.fLeft, -blurRect.fTop);
     blurMatrix.postScale(kInputScale, kInputScale);
 
-    // start by downscaling and doing the first blur pass
     SkSamplingOptions linear(SkFilterMode::kLinear, SkMipmapMode::kNone);
     SkRuntimeShaderBuilder blurBuilder(mBlurEffect);
     blurBuilder.child("child") =
-            input->makeShader(SkTileMode::kClamp, SkTileMode::kClamp, linear, blurMatrix);
+            input->makeShader(SkTileMode::kMirror, SkTileMode::kMirror, linear, blurMatrix);
     blurBuilder.uniform("in_blurOffset") = radiusByPasses * kInputScale;
 
-    sk_sp<SkImage> tmpBlur(blurBuilder.makeImage(context, nullptr, scaledInfo, false));
+    SkImageInfo scaledInfo = input->imageInfo().makeWH(std::ceil(blurRect.width() * kInputScale),
+                                                       std::ceil(blurRect.height() * kInputScale));
 
-    // And now we'll build our chain of scaled blur stages
-    for (auto i = 1; i < numberOfPasses; i++) {
-        blurBuilder.child("child") =
-                tmpBlur->makeShader(SkTileMode::kClamp, SkTileMode::kClamp, linear);
-        blurBuilder.uniform("in_blurOffset") = (float) i * radiusByPasses * kInputScale;
-        tmpBlur = blurBuilder.makeImage(context, nullptr, scaledInfo, false);
+    sk_sp<SkImage> tmpBlur = blurBuilder.makeImage(context, nullptr, scaledInfo, false);
+    if (!tmpBlur) {
+        return nullptr;
     }
 
-    return tmpBlur;
+    for (auto i = 1; i < numberOfPasses; i++) {
+        blurBuilder.child("child") =
+                tmpBlur->makeShader(SkTileMode::kMirror, SkTileMode::kMirror, linear);
+        blurBuilder.uniform("in_blurOffset") = (float) i * radiusByPasses * kInputScale;
+        sk_sp<SkImage> nextBlur = blurBuilder.makeImage(context, nullptr, scaledInfo, false);
+        if (!nextBlur) {
+            return nullptr;
+        }
+        tmpBlur = std::move(nextBlur);
+    }
+
+    const float sigmaScale = blurRadius * kInputScale * 0.5f;
+
+    SkPaint paint;
+    paint.setBlendMode(SkBlendMode::kSrc);
+
+    sk_sp<SkImageFilter> finalFilter = SkImageFilters::Blur(
+        sigmaScale, sigmaScale, SkTileMode::kMirror, nullptr);
+
+    paint.setImageFilter(finalFilter);
+
+    sk_sp<SkSurface> surface = SkSurface::MakeRenderTarget(context, skgpu::Budgeted::kNo, scaledInfo);
+
+    surface->getCanvas()->drawImage(tmpBlur.get(), 0, 0);
+
+    return surface->makeImageSnapshot();
 }
 
 } // namespace skia

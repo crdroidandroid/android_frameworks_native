@@ -35,33 +35,51 @@ namespace skia {
 
 // This constant approximates the scaling done in the software path's
 // "high quality" mode, in SkBlurMask::Blur() (1 / sqrt(3)).
-static const float BLUR_SIGMA_SCALE = 0.57735f;
+static const float BLUR_SIGMA_SCALE = 0.1;
+static const float GLASS_BLUR_SCALE = 2.0f;
 
-GaussianBlurFilter::GaussianBlurFilter(): BlurFilter(/* maxCrossFadeRadius= */ 0.0f) {}
+GaussianBlurFilter::GaussianBlurFilter() : BlurFilter(/* maxCrossFadeRadius= */ 0.0f) {}
 
 sk_sp<SkImage> GaussianBlurFilter::generate(GrRecordingContext* context, const uint32_t blurRadius,
                                             const sk_sp<SkImage> input, const SkRect& blurRect)
     const {
-    // Create blur surface with the bit depth and colorspace of the original surface
-    SkImageInfo scaledInfo = input->imageInfo().makeWH(std::ceil(blurRect.width() * kInputScale),
-                                                       std::ceil(blurRect.height() * kInputScale));
+    // Calculate the scaled dimensions once
+    const float scaledWidth = std::ceil(blurRect.width() * kInputScale);
+    const float scaledHeight = std::ceil(blurRect.height() * kInputScale);
+
+    // Create a surface with the scaled dimensions
+    SkImageInfo scaledInfo = input->imageInfo().makeWH(scaledWidth, scaledHeight);
     sk_sp<SkSurface> surface = SkSurface::MakeRenderTarget(context,
                                                            skgpu::Budgeted::kNo, scaledInfo);
 
+    // Prepare the blur filter parameters
+    const float sigmaScale = blurRadius * kInputScale * BLUR_SIGMA_SCALE;
+
+    // Set up the paint with the blur filter and mirror-like glass effect
     SkPaint paint;
     paint.setBlendMode(SkBlendMode::kSrc);
-    paint.setImageFilter(SkImageFilters::Blur(
-                blurRadius * kInputScale * BLUR_SIGMA_SCALE,
-                blurRadius * kInputScale * BLUR_SIGMA_SCALE,
-                SkTileMode::kClamp, nullptr));
 
+    // Create the blur filter with mirror tile mode
+    sk_sp<SkImageFilter> blurFilter =
+        SkImageFilters::Blur(sigmaScale, sigmaScale, SkTileMode::kMirror, nullptr);
+
+    // Create the mirror-like glass effect with mirror tile mode
+    sk_sp<SkImageFilter> glassEffect = SkImageFilters::Blur(
+        blurRadius * kInputScale * GLASS_BLUR_SCALE, blurRadius * kInputScale * GLASS_BLUR_SCALE,
+        SkTileMode::kMirror, nullptr);
+
+    // Apply the mirror-like glass effect on top of the blur filter
+    sk_sp<SkImageFilter> finalFilter = SkImageFilters::Compose(blurFilter, glassEffect);
+
+    // Attach the final filter to the paint
+    paint.setImageFilter(finalFilter);
+
+    // Draw the image onto the surface with the filter applied
     surface->getCanvas()->drawImageRect(
-            input,
-            blurRect,
-            SkRect::MakeWH(scaledInfo.width(), scaledInfo.height()),
-            SkSamplingOptions{SkFilterMode::kLinear, SkMipmapMode::kNone},
-            &paint,
-            SkCanvas::SrcRectConstraint::kFast_SrcRectConstraint);
+        input, blurRect, SkRect::MakeWH(scaledWidth, scaledHeight),
+        SkSamplingOptions{SkFilterMode::kLinear, SkMipmapMode::kNone}, &paint,
+        SkCanvas::SrcRectConstraint::kFast_SrcRectConstraint);
+
     return surface->makeImageSnapshot();
 }
 
