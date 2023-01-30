@@ -724,33 +724,6 @@ bool OutputLayer::isHardwareCursor() const {
     return state.hwc && state.hwc->hwcCompositionType == Composition::CURSOR;
 }
 
-void OutputLayer::detectDisallowedCompositionTypeChange(Composition from, Composition to) const {
-    bool result = false;
-    switch (from) {
-        case Composition::INVALID:
-        case Composition::CLIENT:
-            result = false;
-            break;
-
-        case Composition::DEVICE:
-        case Composition::SOLID_COLOR:
-            result = (to == Composition::CLIENT);
-            break;
-
-        case Composition::CURSOR:
-        case Composition::SIDEBAND:
-        case Composition::DISPLAY_DECORATION:
-            result = (to == Composition::CLIENT || to == Composition::DEVICE);
-            break;
-    }
-
-    if (!result) {
-        ALOGE("[%s] Invalid device requested composition type change: %s (%d) --> %s (%d)",
-              getLayerFE().getDebugName(), to_string(from).c_str(), static_cast<int>(from),
-              to_string(to).c_str(), static_cast<int>(to));
-    }
-}
-
 bool OutputLayer::isClientCompositionForced(bool isPeekingThrough) const {
     return getState().forceClientComposition ||
             (!isPeekingThrough && getLayerFE().hasRoundedCorners());
@@ -760,13 +733,6 @@ void OutputLayer::applyDeviceCompositionTypeChange(Composition compositionType) 
     auto& state = editState();
     LOG_FATAL_IF(!state.hwc);
     auto& hwcState = *state.hwc;
-
-    // Only detected disallowed changes if this was not a skip layer, because the
-    // validated composition type may be arbitrary (usually DEVICE, to reflect that there were
-    // fewer GPU layers)
-    if (!hwcState.layerSkipped) {
-        detectDisallowedCompositionTypeChange(hwcState.hwcCompositionType, compositionType);
-    }
 
     hwcState.hwcCompositionType = compositionType;
 }

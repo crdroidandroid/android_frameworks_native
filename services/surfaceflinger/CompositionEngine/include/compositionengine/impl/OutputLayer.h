@@ -86,9 +86,6 @@ private:
     void writeCompositionTypeToHWC(HWC2::Layer*,
                                    aidl::android::hardware::graphics::composer3::Composition,
                                    bool isPeekingThrough, bool skipLayer);
-    void detectDisallowedCompositionTypeChange(
-            aidl::android::hardware::graphics::composer3::Composition from,
-            aidl::android::hardware::graphics::composer3::Composition to) const;
     bool isClientCompositionForced(bool isPeekingThrough) const;
 };
 
