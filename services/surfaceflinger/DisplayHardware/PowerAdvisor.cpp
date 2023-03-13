@@ -326,9 +326,9 @@ void PowerAdvisor::setFrameDelay(nsecs_t frameDelayDuration) {
 }
 
 void PowerAdvisor::setHwcPresentDelayedTime(
-        DisplayId displayId, std::chrono::steady_clock::time_point earliestFrameStartTime) {
+        DisplayId displayId, std::optional<std::chrono::steady_clock::time_point> earliestFrameStartTime) {
     mDisplayTimingData[displayId].hwcPresentDelayedTime =
-            (earliestFrameStartTime - std::chrono::steady_clock::now()).count() + systemTime();
+            (*earliestFrameStartTime - std::chrono::steady_clock::now()).count() + systemTime();
 }
 
 void PowerAdvisor::setCommitStart(nsecs_t commitStartTime) {

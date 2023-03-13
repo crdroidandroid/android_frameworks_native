@@ -81,7 +81,7 @@ public:
     virtual void setSkippedValidate(DisplayId displayId, bool skipped) = 0;
     // Reports when a hwc present is delayed, and the time that it will resume
     virtual void setHwcPresentDelayedTime(
-            DisplayId displayId, std::chrono::steady_clock::time_point earliestFrameStartTime) = 0;
+            DisplayId displayId, std::optional<std::chrono::steady_clock::time_point> earliestFrameStartTime) = 0;
     // Reports the start delay for SurfaceFlinger this frame
     virtual void setFrameDelay(nsecs_t frameDelayDuration) = 0;
     // Reports the SurfaceFlinger commit start time this frame
@@ -145,7 +145,7 @@ public:
     void setSfPresentTiming(nsecs_t presentFenceTime, nsecs_t presentEndTime) override;
     void setHwcPresentDelayedTime(
             DisplayId displayId,
-            std::chrono::steady_clock::time_point earliestFrameStartTime) override;
+            std::optional<std::chrono::steady_clock::time_point> earliestFrameStartTime) override;
 
     void setFrameDelay(nsecs_t frameDelayDuration) override;
     void setCommitStart(nsecs_t commitStartTime) override;

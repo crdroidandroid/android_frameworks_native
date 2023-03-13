@@ -257,7 +257,6 @@ bool Display::chooseCompositionStrategy(
     if (status_t result =
                 hwc.getDeviceCompositionChanges(*halDisplayId, requiresClientComposition,
                                                 getState().earliestPresentTime,
-                                                getState().previousPresentFence,
                                                 getState().expectedPresentTime, outChanges);
         result != NO_ERROR) {
         ALOGE("chooseCompositionStrategy failed for %s: %d (%s)", getName().c_str(), result,
@@ -374,14 +373,12 @@ compositionengine::Output::FrameFences Display::presentAndGetFrameFences() {
 
     if (isPowerHintSessionEnabled()) {
         if (!getCompositionEngine().getHwComposer().getComposer()->isSupported(
-                    Hwc2::Composer::OptionalFeature::ExpectedPresentTime) &&
-            getState().previousPresentFence->getSignalTime() != Fence::SIGNAL_TIME_PENDING) {
+                    Hwc2::Composer::OptionalFeature::ExpectedPresentTime)) {
             mPowerAdvisor->setHwcPresentDelayedTime(mId, getState().earliestPresentTime);
         }
     }
 
-    hwc.presentAndGetReleaseFences(*halDisplayIdOpt, getState().earliestPresentTime,
-                                   getState().previousPresentFence);
+    hwc.presentAndGetReleaseFences(*halDisplayIdOpt, getState().earliestPresentTime);
 
     if (isPowerHintSessionEnabled()) {
         mPowerAdvisor->setHwcPresentTiming(mId, startTime, systemTime());
