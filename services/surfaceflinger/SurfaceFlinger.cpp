@@ -4861,6 +4861,10 @@ void SurfaceFlinger::markLayerPendingRemovalLocked(const sp<Layer>& layer) {
 }
 
 void SurfaceFlinger::onHandleDestroyed(BBinder* handle, sp<Layer>& layer) {
+    if (!layer) {
+      ALOGW("Attempted to destroy an invalid layer");
+      return;
+    }
     Mutex::Autolock lock(mStateLock);
     markLayerPendingRemovalLocked(layer);
     mBufferCountTracker.remove(handle);
