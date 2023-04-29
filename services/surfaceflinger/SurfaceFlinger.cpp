@@ -1170,18 +1170,6 @@ void SurfaceFlinger::updateInternalStateWithChangedMode() {
         return;
     }
 
-    if (display->getActiveMode()->getResolution() != upcomingModeInfo.mode->getResolution()) {
-        auto& state = mCurrentState.displays.editValueFor(display->getDisplayToken());
-        // We need to generate new sequenceId in order to recreate the display (and this
-        // way the framebuffer).
-        state.sequenceId = DisplayDeviceState{}.sequenceId;
-        state.physical->activeMode = upcomingModeInfo.mode;
-        processDisplayChangesLocked();
-
-        // processDisplayChangesLocked will update all necessary components so we're done here.
-        return;
-    }
-
     // We just created this display so we can call even if we are not on the main thread.
     ftl::FakeGuard guard(kMainThreadContext);
     display->setActiveMode(upcomingModeInfo.mode->getId());
@@ -1279,6 +1267,21 @@ void SurfaceFlinger::setActiveModeInHwcIfNeeded() {
             continue;
         }
         mScheduler->onNewVsyncPeriodChangeTimeline(outTimeline);
+
+    	const auto upcomingModeInfo =
+            FTL_FAKE_GUARD(kMainThreadContext, display->getUpcomingActiveMode());
+            
+    	if (display->getActiveMode()->getResolution() != upcomingModeInfo.mode->getResolution()) {
+            auto& state = mCurrentState.displays.editValueFor(display->getDisplayToken());
+            // We need to generate new sequenceId in order to recreate the display (and this
+            // way the framebuffer).
+            state.sequenceId = DisplayDeviceState{}.sequenceId;
+            state.physical->activeMode = upcomingModeInfo.mode;
+            processDisplayChangesLocked();
+
+            // processDisplayChangesLocked will update all necessary components so we're done here.
+            return;
+    	}
 
         if (outTimeline.refreshRequired) {
             scheduleComposite(FrameHint::kNone);
@@ -3534,7 +3537,9 @@ void SurfaceFlinger::initScheduler(const sp<DisplayDevice>& display) {
     // This is a bit hacky, but this avoids a back-pointer into the main SF
     // classes from EventThread, and there should be no run-time binder cost
     // anyway since there are no connected apps at this point.
-    mScheduler->onPrimaryDisplayModeChanged(mAppConnectionHandle, display->getActiveMode());
+    const scheduler::RefreshRateConfigs::Policy currentPolicy =
+            display->refreshRateConfigs().getCurrentPolicy();
+    mScheduler->onPrimaryDisplayModeChanged(mAppConnectionHandle, display->getMode(currentPolicy.defaultMode));
 }
 
 void SurfaceFlinger::updatePhaseConfiguration(const Fps& refreshRate) {
