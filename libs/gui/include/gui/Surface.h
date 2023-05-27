@@ -411,6 +411,8 @@ public:
     virtual int connect(int api, const sp<SurfaceListener>& listener,
                         bool reportBufferRemoval = false);
     virtual int detachNextBuffer(sp<GraphicBuffer>* outBuffer, sp<Fence>* outFence);
+    // MIUI ADD
+    virtual void releaseSlot(int slot);
     virtual int attachBuffer(ANativeWindowBuffer*);
 
     virtual void destroy();
