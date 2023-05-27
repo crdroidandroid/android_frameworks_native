@@ -55,6 +55,7 @@ public:
     void onBufferReleased() override;
     bool needsReleaseNotify() override;
     void onBuffersDiscarded(const std::vector<int32_t>& slots) override;
+    void onBufferDetached(int slot) override;
 };
 
 }  // namespace android

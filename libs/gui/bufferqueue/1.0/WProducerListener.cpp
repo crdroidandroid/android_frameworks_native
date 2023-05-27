@@ -49,4 +49,7 @@ bool LWProducerListener::needsReleaseNotify() {
 void LWProducerListener::onBuffersDiscarded(const std::vector<int32_t>& /*slots*/) {
 }
 
+void LWProducerListener::onBufferDetached(int /*slot*/) {
+}
+
 }  // namespace android
