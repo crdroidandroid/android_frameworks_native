@@ -25,6 +25,7 @@ enum {
     ON_BUFFER_RELEASED = IBinder::FIRST_CALL_TRANSACTION,
     NEEDS_RELEASE_NOTIFY,
     ON_BUFFERS_DISCARDED,
+    ON_BUFFER_DETACHED,
 };
 
 class BpProducerListener : public BpInterface<IProducerListener>
@@ -64,6 +65,13 @@ public:
         data.writeInt32Vector(discardedSlots);
         remote()->transact(ON_BUFFERS_DISCARDED, data, &reply, IBinder::FLAG_ONEWAY);
     }
+
+    virtual void onBufferDetached(int slot) {
+        Parcel data, reply;
+        data.writeInterfaceToken(IProducerListener::getInterfaceDescriptor());
+        data.writeInt32(slot);
+        remote()->transact(ON_BUFFER_DETACHED, data, &reply, IBinder::FLAG_ONEWAY);
+    }
 };
 
 // Out-of-line virtual method definition to trigger vtable emission in this
@@ -87,6 +95,10 @@ public:
 
     virtual void onBuffersDiscarded(const std::vector<int32_t>& discardedSlots) override {
         return mBase->onBuffersDiscarded(discardedSlots);
+    }
+
+    virtual void onBufferDetached(int slot) {
+        mBase->onBufferDetached(slot);
     }
 };
 
@@ -115,6 +127,12 @@ status_t BnProducerListener::onTransact(uint32_t code, const Parcel& data,
             onBuffersDiscarded(discardedSlots);
             return NO_ERROR;
         }
+        case ON_BUFFER_DETACHED:
+            int slot = 0;
+            CHECK_INTERFACE(IProducerListener, data, reply);
+            data.readInt32(&slot);
+            onBufferDetached(slot);
+            return NO_ERROR;
     }
     return BBinder::onTransact(code, data, reply, flags);
 }
@@ -128,4 +146,7 @@ bool BnProducerListener::needsReleaseNotify() {
 void BnProducerListener::onBuffersDiscarded(const std::vector<int32_t>& /*discardedSlots*/) {
 }
 
+void BnProducerListener::onBufferDetached(int slot) {
+    ALOGE("BnProducerListener::onBufferDetached slot: %d",slot);
+}
 } // namespace android

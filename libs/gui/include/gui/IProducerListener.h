@@ -49,6 +49,8 @@ public:
     // onBuffersFreed is called from IGraphicBufferConsumer::discardFreeBuffers
     // to notify the producer that certain free buffers are discarded by the consumer.
     virtual void onBuffersDiscarded(const std::vector<int32_t>& slots) = 0; // Asynchronous
+
+    virtual void onBufferDetached(int slot) = 0;
 };
 
 #ifndef NO_BINDER
@@ -72,6 +74,7 @@ public:
             Parcel* reply, uint32_t flags = 0);
     virtual bool needsReleaseNotify();
     virtual void onBuffersDiscarded(const std::vector<int32_t>& slots);
+    virtual void onBufferDetached(int slot);
 };
 
 #else
@@ -85,6 +88,7 @@ public:
     virtual ~StubProducerListener();
     virtual void onBufferReleased() {}
     virtual bool needsReleaseNotify() { return false; }
+    virtual void onBufferDetached(int /**slot**/) {}
 };
 
 } // namespace android
