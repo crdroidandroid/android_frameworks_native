@@ -2161,6 +2161,19 @@ int Surface::disconnect(int api, IGraphicBufferProducer::DisconnectMode mode) {
     return err;
 }
 
+// MIUI ADD: START
+void Surface::releaseSlot(int slot) {
+    Mutex::Autolock lock(mMutex);
+    if(mDequeuedSlots.count(slot) <= 0) {
+        ALOGV("Surface releaseSlot %d",slot);
+        if (mReportRemovedBuffers && (mSlots[slot].buffer != nullptr)) {
+            mRemovedBuffers.push_back(mSlots[slot].buffer);
+        }
+        mSlots[slot].buffer = nullptr;
+    }
+}
+// MIUI ADD: END
+
 int Surface::detachNextBuffer(sp<GraphicBuffer>* outBuffer,
         sp<Fence>* outFence) {
     ATRACE_CALL();
