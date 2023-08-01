@@ -194,6 +194,9 @@ cc_defaults {
         "-performance-move-const-arg", // b/273486801
         "portability*",
     ],
+    lto: {
+        thin: true,
+    },
 }
 
 cc_library_headers {
@@ -348,6 +351,9 @@ cc_library {
                 "jni_headers",
             ],
         },
+    },
+    lto: {
+        thin: true,
     },
 
     afdo: true,
