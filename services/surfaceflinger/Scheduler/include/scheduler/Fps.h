@@ -149,7 +149,7 @@ inline bool operator!=(const FpsRanges& lhs, const FpsRanges& rhs) {
 }
 
 inline unsigned operator/(Fps lhs, Fps rhs) {
-    return static_cast<unsigned>(std::ceil(lhs.getValue() / rhs.getValue()));
+    return static_cast<unsigned>(std::ceil(lhs.getValue() / rhs.getValue() - 0.00001));
 }
 
 } // namespace fps_approx_ops
