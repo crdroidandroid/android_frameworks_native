@@ -2708,6 +2708,46 @@ TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_twoUids) {
     EXPECT_TRUE(frameRateOverrides.empty());
 }
 
+TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_twoUids_TouchBoostDisabled) {
+    if (GetParam() == Config::FrameRateOverride::Disabled) {
+        return;
+    }
+
+    ASSERT_TRUE(GetParam() == Config::FrameRateOverride::AppOverrideNativeRefreshRates ||
+                GetParam() == Config::FrameRateOverride::AppOverride ||
+                GetParam() == Config::FrameRateOverride::Enabled);
+
+    auto selector = createSelector(kModes_30_60_72_90_120, kModeId120, {.touchBoostDisabled = true});
+
+    std::vector<LayerRequirement> layers = {{.ownerUid = 1234, .weight = 1.f},
+                                            {.ownerUid = 5678, .weight = 1.f}};
+
+    layers[0].name = "Test layer 1234";
+    layers[0].desiredRefreshRate = 60_Hz;
+    layers[0].vote = LayerVoteType::ExplicitDefault;
+
+    layers[1].name = "Test layer 5678";
+    layers[1].desiredRefreshRate = 30_Hz;
+    layers[1].vote = LayerVoteType::ExplicitDefault;
+    auto frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+
+    EXPECT_EQ(2u, frameRateOverrides.size());
+    ASSERT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(60_Hz, frameRateOverrides.at(1234));
+    ASSERT_EQ(1u, frameRateOverrides.count(5678));
+    EXPECT_EQ(60_Hz, frameRateOverrides.at(5678));
+
+    layers[1].vote = LayerVoteType::Heuristic;
+    frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_EQ(1u, frameRateOverrides.size());
+    ASSERT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(60_Hz, frameRateOverrides.at(1234));
+
+    layers[1].ownerUid = 1234;
+    frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_TRUE(frameRateOverrides.empty());
+}
+
 TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_touch) {
     if (GetParam() == Config::FrameRateOverride::Disabled) {
         return;
@@ -2773,6 +2813,43 @@ TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_DivisorIsNotDisplayRefresh
 
     const auto expetedFps =
             GetParam() == Config::FrameRateOverride::AppOverrideNativeRefreshRates ? 60_Hz : 30_Hz;
+    layers[0].vote = LayerVoteType::ExplicitDefault;
+    auto frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_EQ(1u, frameRateOverrides.size());
+    ASSERT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(expetedFps, frameRateOverrides.at(1234));
+
+    layers[0].vote = LayerVoteType::ExplicitExactOrMultiple;
+    frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_EQ(1u, frameRateOverrides.size());
+    ASSERT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(expetedFps, frameRateOverrides.at(1234));
+
+    layers[0].vote = LayerVoteType::ExplicitExact;
+    frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_EQ(1u, frameRateOverrides.size());
+    ASSERT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(expetedFps, frameRateOverrides.at(1234));
+}
+
+TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_DivisorIsNotDisplayRefreshRate_TouchBoostDisabled) {
+    if (GetParam() == Config::FrameRateOverride::Disabled) {
+        return;
+    }
+
+    ASSERT_TRUE(GetParam() == Config::FrameRateOverride::AppOverrideNativeRefreshRates ||
+                GetParam() == Config::FrameRateOverride::AppOverride ||
+                GetParam() == Config::FrameRateOverride::Enabled);
+
+    auto selector = createSelector(kModes_60_120, kModeId120, {.touchBoostDisabled = true});
+
+    std::vector<LayerRequirement> layers = {{.weight = 1.f}};
+    layers[0].name = "Test layer";
+    layers[0].ownerUid = 1234;
+    layers[0].desiredRefreshRate = 30_Hz;
+
+    const auto expetedFps =
+            GetParam() == Config::FrameRateOverride::AppOverrideNativeRefreshRates ? 60_Hz : 60_Hz;
     layers[0].vote = LayerVoteType::ExplicitDefault;
     auto frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
     EXPECT_EQ(1u, frameRateOverrides.size());
@@ -2886,6 +2963,63 @@ TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_InPolicy) {
     EXPECT_EQ(1u, frameRateOverrides.size());
     EXPECT_EQ(1u, frameRateOverrides.count(1234));
     EXPECT_EQ(30_Hz, frameRateOverrides.at(1234));
+}
+
+TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_InPolicy_TouchBoostDisabled) {
+    if (GetParam() != Config::FrameRateOverride::Enabled) {
+        return;
+    }
+    auto selector = createSelector(kModes_30_60_72_90_120, kModeId120, {.touchBoostDisabled = true});
+
+    std::vector<LayerRequirement> layers = {{.weight = 1.f}};
+    {
+        const FpsRange physical = {120_Hz, 120_Hz};
+        const FpsRange render = {60_Hz, 90_Hz};
+        EXPECT_EQ(SetPolicyResult::Changed,
+                  selector.setDisplayManagerPolicy(
+                          {kModeId120, {physical, render}, {physical, render}}));
+    }
+
+    layers[0].name = "30Hz";
+    layers[0].ownerUid = 1234;
+    layers[0].desiredRefreshRate = 30_Hz;
+    layers[0].vote = LayerVoteType::ExplicitDefault;
+
+    auto frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_EQ(1u, frameRateOverrides.size());
+    EXPECT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(60_Hz, frameRateOverrides.at(1234));
+
+    {
+        const FpsRange physical = {120_Hz, 120_Hz};
+        const FpsRange render = {30_Hz, 90_Hz};
+        EXPECT_EQ(SetPolicyResult::Changed,
+                  selector.setDisplayManagerPolicy(
+                          {kModeId120, {physical, render}, {physical, render}}));
+    }
+
+    frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_EQ(1u, frameRateOverrides.size());
+    EXPECT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(60_Hz, frameRateOverrides.at(1234));
+
+    {
+        const FpsRange physical = {120_Hz, 120_Hz};
+        const FpsRange render = {60_Hz, 60_Hz};
+        EXPECT_EQ(SetPolicyResult::Changed,
+                  selector.setDisplayManagerPolicy(
+                          {kModeId120, {physical, render}, {physical, render}}));
+    }
+
+    layers[0].name = "60Hz";
+    layers[0].ownerUid = 1234;
+    layers[0].desiredRefreshRate = 60_Hz;
+    layers[0].vote = LayerVoteType::ExplicitDefault;
+
+    frameRateOverrides = selector.getFrameRateOverrides(layers, 120_Hz, {});
+    EXPECT_EQ(1u, frameRateOverrides.size());
+    EXPECT_EQ(1u, frameRateOverrides.count(1234));
+    EXPECT_EQ(60_Hz, frameRateOverrides.at(1234));
 }
 
 TEST_P(RefreshRateSelectorTest, renderFrameRates) {

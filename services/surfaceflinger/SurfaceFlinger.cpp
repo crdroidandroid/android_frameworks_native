@@ -3303,7 +3303,8 @@ sp<DisplayDevice> SurfaceFlinger::setupNewDisplayDeviceInternal(
                  .frameRateMultipleThreshold =
                          base::GetIntProperty("debug.sf.frame_rate_multiple_threshold", 60),
                  .idleTimerTimeout = idleTimerTimeoutMs,
-                 .kernelIdleTimerController = kernelIdleTimerController};
+                 .kernelIdleTimerController = kernelIdleTimerController,
+                 .touchBoostDisabled = sysprop::set_touch_timer_ms(0) == 0};
 
         creationArgs.refreshRateSelector =
                 mPhysicalDisplays.get(physical->id)

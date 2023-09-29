@@ -290,6 +290,9 @@ public:
         // The controller representing how the kernel idle timer will be configured
         // either on the HWC api or sysprop.
         ftl::Optional<KernelIdleTimerController> kernelIdleTimerController;
+
+        // True if touch boost is disabled.
+        bool touchBoostDisabled;
     };
 
     RefreshRateSelector(

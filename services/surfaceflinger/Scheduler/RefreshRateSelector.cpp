@@ -806,8 +806,11 @@ auto RefreshRateSelector::getFrameRateOverrides(const std::vector<LayerRequireme
     std::lock_guard lock(mLock);
 
     const auto* policyPtr = getCurrentPolicyLocked();
-    // We don't want to run lower than 30fps
-    const Fps minFrameRate = std::max(policyPtr->appRequestRanges.render.min, 30_Hz, isApproxLess);
+    // We don't want to run lower than 60fps, or 30fps when touch boost is enabled
+    const Fps minFrameRate = std::max(
+        policyPtr->appRequestRanges.render.min,
+        mConfig.touchBoostDisabled ? 60_Hz : 30_Hz,
+        isApproxLess);
 
     using fps_approx_ops::operator/;
     const unsigned numMultiples = displayRefreshRate / minFrameRate;
