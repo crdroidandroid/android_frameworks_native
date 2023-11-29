@@ -99,12 +99,11 @@ void BLASTBufferItemConsumer::addAndGetFrameTimestamps(const NewFrameEventsEntry
     }
 }
 
-void BLASTBufferItemConsumer::updateFrameTimestamps(uint64_t frameNumber, nsecs_t refreshStartTime,
-                                                    const sp<Fence>& glDoneFence,
-                                                    const sp<Fence>& presentFence,
-                                                    const sp<Fence>& prevReleaseFence,
-                                                    CompositorTiming compositorTiming,
-                                                    nsecs_t latchTime, nsecs_t dequeueReadyTime) {
+void BLASTBufferItemConsumer::updateFrameTimestamps(
+        uint64_t frameNumber, uint64_t previousFrameNumber, nsecs_t refreshStartTime,
+        const sp<Fence>& glDoneFence, const sp<Fence>& presentFence,
+        const sp<Fence>& prevReleaseFence, CompositorTiming compositorTiming, nsecs_t latchTime,
+        nsecs_t dequeueReadyTime) {
     Mutex::Autolock lock(mMutex);
 
     // if the producer is not connected, don't bother updating,
@@ -115,10 +114,13 @@ void BLASTBufferItemConsumer::updateFrameTimestamps(uint64_t frameNumber, nsecs_
     std::shared_ptr<FenceTime> releaseFenceTime = std::make_shared<FenceTime>(prevReleaseFence);
 
     mFrameEventHistory.addLatch(frameNumber, latchTime);
-    mFrameEventHistory.addRelease(frameNumber, dequeueReadyTime, std::move(releaseFenceTime));
     mFrameEventHistory.addPreComposition(frameNumber, refreshStartTime);
     mFrameEventHistory.addPostComposition(frameNumber, glDoneFenceTime, presentFenceTime,
                                           compositorTiming);
+    if (previousFrameNumber > 0) {
+        mFrameEventHistory.addRelease(previousFrameNumber, dequeueReadyTime,
+                                      std::move(releaseFenceTime));
+    }
 }
 
 void BLASTBufferItemConsumer::getConnectionEvents(uint64_t frameNumber, bool* needsDisconnect) {
@@ -351,6 +353,7 @@ void BLASTBufferQueue::transactionCallback(nsecs_t /*latchTime*/, const sp<Fence
                 if (stat.latchTime > 0) {
                     mBufferItemConsumer
                             ->updateFrameTimestamps(stat.frameEventStats.frameNumber,
+                                                    stat.frameEventStats.previousFrameNumber,
                                                     stat.frameEventStats.refreshStartTime,
                                                     stat.frameEventStats.gpuCompositionDoneFence,
                                                     stat.presentFence, stat.previousReleaseFence,

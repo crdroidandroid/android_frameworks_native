@@ -1644,6 +1644,9 @@ TEST_F(BLASTFrameEventHistoryTest, FrameEventHistory_Basic) {
     nsecs_t postedTimeB = 0;
     setUpAndQueueBuffer(igbProducer, &requestedPresentTimeB, &postedTimeB, &qbOutput, true);
     history.applyDelta(qbOutput.frameTimestamps);
+
+    adapter.waitForCallback(2);
+
     events = history.getFrame(1);
     ASSERT_NE(nullptr, events);
 
@@ -1653,7 +1656,7 @@ TEST_F(BLASTFrameEventHistoryTest, FrameEventHistory_Basic) {
     ASSERT_GE(events->postedTime, postedTimeA);
 
     ASSERT_GE(events->latchTime, postedTimeA);
-    ASSERT_GE(events->dequeueReadyTime, events->latchTime);
+    ASSERT_EQ(events->dequeueReadyTime, FrameEvents::TIMESTAMP_PENDING);
     ASSERT_NE(nullptr, events->gpuCompositionDoneFence);
     ASSERT_NE(nullptr, events->displayPresentFence);
     ASSERT_NE(nullptr, events->releaseFence);
@@ -1664,6 +1667,48 @@ TEST_F(BLASTFrameEventHistoryTest, FrameEventHistory_Basic) {
     ASSERT_EQ(2, events->frameNumber);
     ASSERT_EQ(requestedPresentTimeB, events->requestedPresentTime);
     ASSERT_GE(events->postedTime, postedTimeB);
+
+    // Now do the same as above with a third buffer, so that timings related to
+    // buffer releases make it back to the first frame.
+    nsecs_t requestedPresentTimeC = 0;
+    nsecs_t postedTimeC = 0;
+    setUpAndQueueBuffer(igbProducer, &requestedPresentTimeC, &postedTimeC, &qbOutput, true);
+    history.applyDelta(qbOutput.frameTimestamps);
+
+    adapter.waitForCallback(3);
+
+    // Check the first frame...
+    events = history.getFrame(1);
+    ASSERT_NE(nullptr, events);
+    ASSERT_EQ(1, events->frameNumber);
+    ASSERT_EQ(requestedPresentTimeA, events->requestedPresentTime);
+    ASSERT_GE(events->postedTime, postedTimeA);
+    ASSERT_GE(events->latchTime, postedTimeA);
+    // Now dequeueReadyTime is valid, because the release timings finally
+    // propaged to queueBuffer()
+    ASSERT_GE(events->dequeueReadyTime, events->latchTime);
+    ASSERT_NE(nullptr, events->gpuCompositionDoneFence);
+    ASSERT_NE(nullptr, events->displayPresentFence);
+    ASSERT_NE(nullptr, events->releaseFence);
+
+    // ...and the second
+    events = history.getFrame(2);
+    ASSERT_NE(nullptr, events);
+    ASSERT_EQ(2, events->frameNumber);
+    ASSERT_EQ(requestedPresentTimeB, events->requestedPresentTime);
+    ASSERT_GE(events->postedTime, postedTimeB);
+    ASSERT_GE(events->latchTime, postedTimeB);
+    ASSERT_EQ(events->dequeueReadyTime, FrameEvents::TIMESTAMP_PENDING);
+    ASSERT_NE(nullptr, events->gpuCompositionDoneFence);
+    ASSERT_NE(nullptr, events->displayPresentFence);
+    ASSERT_NE(nullptr, events->releaseFence);
+
+    // ...and finally the third!
+    events = history.getFrame(3);
+    ASSERT_NE(nullptr, events);
+    ASSERT_EQ(3, events->frameNumber);
+    ASSERT_EQ(requestedPresentTimeC, events->requestedPresentTime);
+    ASSERT_GE(events->postedTime, postedTimeC);
 
     // wait for any callbacks that have not been received
     adapter.waitForCallbacks();
@@ -1723,7 +1768,42 @@ TEST_F(BLASTFrameEventHistoryTest, FrameEventHistory_DroppedFrame) {
     setUpAndQueueBuffer(igbProducer, &requestedPresentTimeC, &postedTimeC, &qbOutput, true);
     history.applyDelta(qbOutput.frameTimestamps);
 
+    adapter.waitForCallback(3);
+
     // frame number, requestedPresentTime, and postTime should not have changed
+    ASSERT_EQ(1, events->frameNumber);
+    ASSERT_EQ(requestedPresentTimeA, events->requestedPresentTime);
+    ASSERT_GE(events->postedTime, postedTimeA);
+
+    // a valid latchtime and pre and post composition info should not be set for the dropped frame
+    ASSERT_FALSE(events->hasLatchInfo());
+    ASSERT_FALSE(events->hasDequeueReadyInfo());
+    ASSERT_FALSE(events->hasGpuCompositionDoneInfo());
+    ASSERT_FALSE(events->hasDisplayPresentInfo());
+    ASSERT_FALSE(events->hasReleaseInfo());
+
+    // we should also have gotten values for the presented frame
+    events = history.getFrame(2);
+    ASSERT_NE(nullptr, events);
+    ASSERT_EQ(2, events->frameNumber);
+    ASSERT_EQ(requestedPresentTimeB, events->requestedPresentTime);
+    ASSERT_GE(events->postedTime, postedTimeB);
+    ASSERT_GE(events->latchTime, postedTimeB);
+    ASSERT_EQ(events->dequeueReadyTime, FrameEvents::TIMESTAMP_PENDING);
+    ASSERT_NE(nullptr, events->gpuCompositionDoneFence);
+    ASSERT_NE(nullptr, events->displayPresentFence);
+    ASSERT_NE(nullptr, events->releaseFence);
+
+    // Queue another buffer to check for timestamps that came late
+    nsecs_t requestedPresentTimeD = 0;
+    nsecs_t postedTimeD = 0;
+    setUpAndQueueBuffer(igbProducer, &requestedPresentTimeD, &postedTimeD, &qbOutput, true);
+    history.applyDelta(qbOutput.frameTimestamps);
+
+    adapter.waitForCallback(4);
+
+    // frame number, requestedPresentTime, and postTime should not have changed
+    events = history.getFrame(1);
     ASSERT_EQ(1, events->frameNumber);
     ASSERT_EQ(requestedPresentTimeA, events->requestedPresentTime);
     ASSERT_GE(events->postedTime, postedTimeA);
