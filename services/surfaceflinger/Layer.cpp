@@ -2156,7 +2156,7 @@ void Layer::setInputInfo(const WindowInfo& info) {
 LayerProto* Layer::writeToProto(LayersProto& layersProto, uint32_t traceFlags) {
     LayerProto* layerProto = layersProto.add_layers();
     writeToProtoDrawingState(layerProto);
-    writeToProtoCommonState(layerProto, LayerVector::StateSet::Drawing, traceFlags);
+    writeToProtoCommonState(layerProto, traceFlags);
 
     if (traceFlags & LayerTracing::TRACE_COMPOSITION) {
         ui::LayerStack layerStack =
@@ -2223,11 +2223,9 @@ void Layer::writeToProtoDrawingState(LayerProto* layerInfo) {
     layerInfo->set_shadow_radius(mEffectiveShadowRadius);
 }
 
-void Layer::writeToProtoCommonState(LayerProto* layerInfo, LayerVector::StateSet stateSet,
-                                    uint32_t traceFlags) {
-    const bool useDrawing = stateSet == LayerVector::StateSet::Drawing;
-    const LayerVector& children = useDrawing ? mDrawingChildren : mCurrentChildren;
-    const State& state = useDrawing ? mDrawingState : mDrawingState;
+void Layer::writeToProtoCommonState(LayerProto* layerInfo, uint32_t traceFlags) {
+    const LayerVector& children = mDrawingChildren;
+    const State& state = mDrawingState;
 
     ui::Transform requestedTransform = state.transform;
 
@@ -2269,7 +2267,7 @@ void Layer::writeToProtoCommonState(LayerProto* layerInfo, LayerVector::StateSet
     LayerProtoHelper::writeToProtoDeprecated(requestedTransform,
                                              layerInfo->mutable_requested_transform());
 
-    auto parent = useDrawing ? mDrawingParent.promote() : mCurrentParent.promote();
+    auto parent = mDrawingParent.promote();
     if (parent != nullptr) {
         layerInfo->set_parent(parent->sequence);
     } else {
@@ -2288,13 +2286,8 @@ void Layer::writeToProtoCommonState(LayerProto* layerInfo, LayerVector::StateSet
     layerInfo->set_owner_uid(mOwnerUid);
 
     if ((traceFlags & LayerTracing::TRACE_INPUT) && needsInputInfo()) {
-        WindowInfo info;
-        if (useDrawing) {
-            info = fillInputInfo(
-                    InputDisplayArgs{.transform = &kIdentityTransform, .isSecure = true});
-        } else {
-            info = state.inputInfo;
-        }
+        WindowInfo info = fillInputInfo(
+                InputDisplayArgs{.transform = &kIdentityTransform, .isSecure = true});
 
         LayerProtoHelper::writeToProto(info, state.touchableRegionCrop,
                                        [&]() { return layerInfo->mutable_input_window_info(); });

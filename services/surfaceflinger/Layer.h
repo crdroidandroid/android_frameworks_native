@@ -645,10 +645,9 @@ public:
     // state as well as buffer data. This should be called in the main or tracing
     // thread.
     void writeToProtoDrawingState(LayerProto* layerInfo);
-    // Write drawing or current state. If writing current state, the caller should hold the
-    // external mStateLock. If writing drawing state, this function should be called on the
-    // main or tracing thread.
-    void writeToProtoCommonState(LayerProto* layerInfo, LayerVector::StateSet,
+    // Write drawing or current state. In here the state is always drawing state,
+    // and this function would only be called on the main or tracing thread.
+    void writeToProtoCommonState(LayerProto* layerInfo,
                                  uint32_t traceFlags = LayerTracing::TRACE_ALL);
 
     gui::WindowInfo::Type getWindowType() const { return mWindowType; }
