@@ -3035,8 +3035,9 @@ bool Layer::updateGeometry() {
 }
 
 bool Layer::setMatrix(const layer_state_t::matrix22_t& matrix) {
-    if (mRequestedTransform.dsdx() == matrix.dsdx && mRequestedTransform.dtdy() == matrix.dtdy &&
-        mRequestedTransform.dtdx() == matrix.dtdx && mRequestedTransform.dsdy() == matrix.dsdy) {
+    // NOTICE: the order of dtdx/dtdy in ui::Transform and layer_state_t::matrix22_t is opposite.
+    if (mRequestedTransform.dsdx() == matrix.dsdx && mRequestedTransform.dtdx() == matrix.dtdy &&
+        mRequestedTransform.dtdy() == matrix.dtdx && mRequestedTransform.dsdy() == matrix.dsdy) {
         return false;
     }
 
