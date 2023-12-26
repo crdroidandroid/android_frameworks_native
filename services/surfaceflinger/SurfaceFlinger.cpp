@@ -3379,7 +3379,22 @@ sp<DisplayDevice> SurfaceFlinger::setupNewDisplayDeviceInternal(
     }
 
     display->setLayerFilter(makeLayerFilterForDisplay(display->getId(), state.layerStack));
-    display->setProjection(state.orientation, state.layerStackSpaceRect,
+
+    Rect layerStackSpaceRect = state.layerStackSpaceRect;
+    // To avoid the resolution scale factor changed during booting.
+    // state.layerStackSpaceRect will update later.
+    if (layerStackSpaceRect.isEmpty() && state.physical) {
+        Rect activeResolution = Rect(state.physical->activeMode->getResolution());
+        bool sizeLimited = (maxGraphicsWidth > 0) && (maxGraphicsHeight > 0)
+                           && (maxGraphicsWidth < activeResolution.width()
+                               || maxGraphicsHeight < activeResolution.height());
+
+        if (sizeLimited) {
+            layerStackSpaceRect = activeResolution;
+        }
+    }
+
+    display->setProjection(state.orientation, layerStackSpaceRect,
                            state.orientedDisplaySpaceRect);
     display->setDisplayName(state.displayName);
     display->setFlags(state.flags);
