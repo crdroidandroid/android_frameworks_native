@@ -172,8 +172,6 @@ std::optional<PhysicalDisplayId> HWComposer::onVsync(hal::HWDisplayId hwcDisplay
         // is a bug in the HWC implementation, but filter the extra events
         // out here so they don't cause havoc downstream.
         if (timestamp == displayData.lastPresentTimestamp) {
-            ALOGW("Ignoring duplicate VSYNC event from HWC for display %s (t=%" PRId64 ")",
-                  to_string(*displayIdOpt).c_str(), timestamp);
             return {};
         }
 
