@@ -621,6 +621,7 @@ cc_library {
     },
 
     afdo: true,
+    lto_Instr100: true,
 }
 
 cc_defaults {
