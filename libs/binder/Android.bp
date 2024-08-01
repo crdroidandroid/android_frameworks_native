@@ -288,6 +288,7 @@ cc_defaults {
         // the code knows to export them.
         "-fvisibility=hidden",
         "-DBUILDING_LIBBINDER",
+        "-O3",
     ] + select(release_flag("RELEASE_LIBBINDER_BINDER_OBSERVER"), {
         true: ["-DLIBBINDER_BINDER_OBSERVER"],
         false: ["-DNO_LIBBINDER_BINDER_OBSERVER"],
