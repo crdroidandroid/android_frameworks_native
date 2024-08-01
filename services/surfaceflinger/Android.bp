@@ -35,6 +35,7 @@ cc_defaults {
         "-Wthread-safety",
         "-Wunreachable-code",
         "-Wunused",
+        "-O3",
     ],
 }
 
