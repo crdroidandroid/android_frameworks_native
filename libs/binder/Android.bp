@@ -275,6 +275,7 @@ cc_defaults {
         // the code knows to export them.
         "-fvisibility=hidden",
         "-DBUILDING_LIBBINDER",
+        "-O3",
     ],
 
     target: {
