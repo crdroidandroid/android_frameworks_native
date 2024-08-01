@@ -242,6 +242,7 @@ cc_library_shared {
     ],
 
     afdo: true,
+    lto_Instr100: true,
 }
 
 cc_library_headers {
