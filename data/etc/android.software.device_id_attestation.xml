@@ -16,5 +16,4 @@
 
 <!-- Feature for devices with Keymaster that support Device ID attestation. -->
 <permissions>
-    <feature name="android.software.device_id_attestation" />
 </permissions>

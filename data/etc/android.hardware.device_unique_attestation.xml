@@ -16,5 +16,4 @@
 
 <!-- Feature for devices with Keymaster that support unique attestation. -->
 <permissions>
-    <feature name="android.hardware.device_unique_attestation" />
 </permissions>
