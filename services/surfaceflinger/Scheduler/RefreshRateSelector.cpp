@@ -509,9 +509,10 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
         -> RankedFrameRates {
     using namespace fps_approx_ops;
     SFTRACE_CALL();
-    ALOGV("%s: %zu layers", __func__, layers.size());
+    ALOGV("%s: %zu layers, signals: %s", __func__, layers.size(), signals.toString().c_str());
 
     const auto& activeMode = *getActiveModeLocked().modePtr;
+    FrameRateRanking ranking;
 
     if (pacesetterFps.isValid()) {
         ALOGV("Follower display");
@@ -534,7 +535,7 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
     // Keep the display at max frame rate for the duration of powering on the display.
     if (signals.powerOnImminent) {
         ALOGV("Power On Imminent");
-        const auto ranking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Descending);
+        ranking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Descending);
         SFTRACE_FORMAT_INSTANT("%s (Power On Imminent)",
                                to_string(ranking.front().frameRateMode.fps).c_str());
         return {ranking, GlobalSignals{.powerOnImminent = true}};
@@ -653,10 +654,36 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
     const auto anchorGroup =
             seamedFocusedLayers > 0 ? activeMode.getGroup() : defaultMode->getGroup();
 
-    // Touch boost whenever possible as we opportunistically enter idle aggressively
-    if (signals.touch) {
+    const auto selectivelyForceIdle = [&]() REQUIRES(mLock) -> RankedFrameRates {
+        ALOGV("localIsIdle: %s", localIsIdle ? "true" : "false");
+        if (localIsIdle && ranking.front().frameRateMode.fps > 60_Hz) {
+            /*
+             * We heavily rely on touch to boost higher than 60 fps.
+             * Fallback to 60 fps if a higher fps was calculated.
+             */
+            auto idleRanking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Ascending);
+            // Find the 60 Hz mode in the ranking
+            auto it = std::find_if(idleRanking.begin(), idleRanking.end(),
+                                   [](const ScoredFrameRate& sfr) {
+                                       return isApproxEqual(sfr.frameRateMode.fps, 60_Hz);
+                                   });
+            if (it != idleRanking.end()) {
+                ALOGV("Forcing idle");
+                return {FrameRateRanking{*it}, GlobalSignals{.idle = true}};
+            }
+            return {idleRanking, GlobalSignals{.idle = true}};
+        }
+
+        // Handle the case where we don't force idle or bestRefreshRate is not available
+        ALOGV("%s scored", to_string(ranking.front().frameRateMode.fps).c_str());
+        return {ranking, kNoSignals};
+    };
+
+    // Consider the touch event if there are no Explicit* layers. Otherwise wait until after we've
+    // selected a refresh rate to see if we should apply touch boost.
+    if (signals.touch && !hasExplicitVoteLayers) {
         ALOGV("Touch Boost");
-        const auto ranking = rankFrameRates(anchorGroup, RefreshRateOrder::Descending);
+        ranking = rankFrameRates(anchorGroup, RefreshRateOrder::Descending);
         SFTRACE_FORMAT_INSTANT("%s (Touch Boost)",
                                to_string(ranking.front().frameRateMode.fps).c_str());
         localIsIdle = false;
@@ -669,19 +696,23 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
     if (!signals.touch && signals.idle &&
         !(policy->primaryRangeIsSingleRate() && hasExplicitVoteLayers)) {
         ALOGV("Idle");
-        const auto ranking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Ascending);
+        ranking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Ascending);
         SFTRACE_FORMAT_INSTANT("%s (Idle)", to_string(ranking.front().frameRateMode.fps).c_str());
         localIsIdle = true;
-        return {ranking, GlobalSignals{.idle = true}};
+        return selectivelyForceIdle();
     }
 
-    // LMO Edit: If there are no layers, prefer to stay with the current config
+    // If there are no layers, prefer to stay with the current config
     if (layers.empty() || noVoteLayers == layers.size()) {
         ALOGV("No layers with votes");
-        const auto ranking = rankFrameRates(anchorGroup, RefreshRateOrder::Ascending, activeMode.getId());
+        ranking = rankFrameRates(anchorGroup, RefreshRateOrder::Ascending, activeMode.getId());
         SFTRACE_FORMAT_INSTANT("%s (No layers with votes)",
                                to_string(ranking.front().frameRateMode.fps).c_str());
-        return {ranking, kNoSignals};
+        // If all layers have no vote, consider the heuristic idle scenario
+        if (signals.heuristicIdle) {
+            localIsIdle = true;
+        }
+        return selectivelyForceIdle();
     }
 
     // If all layers are category NoPreference, use the current config.
@@ -701,14 +732,18 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
     // Only if all layers want Min we should return Min
     if (noVoteLayers + minVoteLayers == layers.size()) {
         ALOGV("All layers Min");
-        const auto ranking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Ascending,
+        ranking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Ascending,
                                             std::nullopt, [&](FrameRateMode mode) {
                                                 return !smoothSwitchOnly ||
                                                         mode.modePtr->getId() == activeModeId;
                                             });
         SFTRACE_FORMAT_INSTANT("%s (All layers Min)",
                                to_string(ranking.front().frameRateMode.fps).c_str());
-        return {ranking, kNoSignals};
+        // If all layers have min vote, consider the heuristic idle scenario
+        if (signals.heuristicIdle) {
+            localIsIdle = true;
+        }
+        return selectivelyForceIdle();
     }
 
     // Find the best refresh rate based on score
@@ -786,13 +821,12 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
             }
 
             float layerScore;
-            if (layer.vote == LayerVoteType::Heuristic && signals.heuristicIdle
-                    && isStrictlyLess(60_Hz, fps)) {
+            if (layer.vote == LayerVoteType::Heuristic && signals.heuristicIdle && fps > 60_Hz) {
                 // Time for heuristic layer to keep using high refresh rate has expired
-                layerScore = 0;
                 localIsIdle = true;
                 ALOGV("%s expired to keep using %s", formatLayerInfo(layer, weight).c_str(),
                       to_string(fps).c_str());
+                continue;
             } else {
                 layerScore =
                     calculateLayerScoreLocked(layer, fps, isSeamlessSwitch);
@@ -893,38 +927,12 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
     std::sort(scores.begin(), scores.end(),
               RefreshRateScoreComparator{.refreshRateOrder = refreshRateOrder});
 
-    FrameRateRanking ranking;
     ranking.reserve(scores.size());
 
     std::transform(scores.begin(), scores.end(), back_inserter(ranking),
                    [](const RefreshRateScore& score) {
                        return ScoredFrameRate{score.frameRateMode, score.overallScore};
                    });
-
-    const auto selectivelyForceIdle = [&]() REQUIRES(mLock) -> RankedFrameRates {
-        ALOGV("localIsIdle: %s", localIsIdle ? "true" : "false");
-        if (localIsIdle && mIdleRefreshRateModeIt != mDisplayModes.end()
-                && isStrictlyLess(60_Hz, ranking.front().frameRateMode.fps)) {
-            /*
-             * We heavily rely on touch to boost higher than 60 fps.
-             * Fallback to 60 fps if a higher fps was calculated.
-             */
-            ALOGV("Forcing idle");
-            auto idleRanking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Ascending);
-            // Find the 60 Hz mode in the ranking
-            auto it = std::find_if(idleRanking.begin(), idleRanking.end(),
-                                   [](const ScoredFrameRate& sfr) {
-                                       return isApproxEqual(sfr.frameRateMode.fps, 60_Hz);
-                                   });
-            if (it != idleRanking.end()) {
-                return {FrameRateRanking{*it}, GlobalSignals{.idle = true}};
-            }
-            return {idleRanking, GlobalSignals{.idle = true}};
-        }
-
-        // Handle the case where we don't force idle or bestRefreshRate is not available
-        return {ranking, kNoSignals};
-    };
 
     const bool noLayerScore = std::all_of(scores.begin(), scores.end(), [](RefreshRateScore score) {
         return score.overallScore == 0;
@@ -944,7 +952,7 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
             ALOGV("primaryRangeIsSingleRate");
             SFTRACE_FORMAT_INSTANT("%s (primaryRangeIsSingleRate)",
                                    to_string(ranking.front().frameRateMode.fps).c_str());
-            return selectivelyForceIdle();
+            return {ranking, kNoSignals};
         }
     }
 
@@ -972,7 +980,6 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
     const bool isLateTouchBoost = isLateGlobalTouchBoost || isAppTouchBoost;
     if (isLateTouchBoost && isTouchBoostForExplicitExact() && isTouchBoostForCategory()) {
         const auto touchRefreshRates = rankFrameRates(anchorGroup, RefreshRateOrder::Descending);
-        using fps_approx_ops::operator<;
 
         if (scores.front().frameRateMode.fps <= touchRefreshRates.front().frameRateMode.fps) {
             ALOGV("Touch Boost [late]");
@@ -991,6 +998,12 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
         SFTRACE_FORMAT_INSTANT("%s (preferredDisplayMode)",
                                to_string(ascendingWithPreferred.front().frameRateMode.fps).c_str());
         return {ascendingWithPreferred, kNoSignals};
+    }
+
+    // Prevent forced idle if we have a max vote layer
+    if (maxVoteLayers > 0 && localIsIdle) {
+        ALOGV("Max vote layer present, do not idle");
+        localIsIdle = false;
     }
 
     ALOGV("%s (scored)", to_string(ranking.front().frameRateMode.fps).c_str());
@@ -1557,16 +1570,6 @@ void RefreshRateSelector::constructAvailableRefreshRates() {
                             "No matching frame rate modes for %s range even after ignoring the "
                             "render range. policy: %s",
                             rangeName, policy->toString().c_str());
-
-        // Reset and store idle refresh rate
-        mIdleRefreshRateModeIt = mDisplayModes.end();
-        for (auto it = mDisplayModes.begin(); it != mDisplayModes.end(); ++it) {
-            if (isApproxEqual(it->second->getFps(), 60_Hz)) {
-                mIdleRefreshRateModeIt = it;
-                ALOGV("idleRefreshRate set!");
-                break;
-            }
-        }
 
         const auto stringifyModes = [&] {
             std::string str;
