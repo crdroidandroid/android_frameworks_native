@@ -764,6 +764,22 @@ void LayerSnapshotBuilder::updateSnapshot(LayerSnapshot& snapshot, const Args& a
         }
     }
 
+    if (forceUpdate || snapshot.clientChanges & layer_state_t::eFixedTransformHintChanged ||
+        args.displayChanges) {
+        snapshot.fixedTransformHint = requested.fixedTransformHint != ui::Transform::ROT_INVALID
+                ? requested.fixedTransformHint
+                : parentSnapshot.fixedTransformHint;
+
+        if (snapshot.fixedTransformHint != ui::Transform::ROT_INVALID) {
+            snapshot.transformHint = snapshot.fixedTransformHint;
+        } else {
+            const auto display = args.displays.get(snapshot.outputFilter.layerStack);
+            snapshot.transformHint = display.has_value()
+                    ? std::make_optional<>(display->get().transformHint)
+                    : std::nullopt;
+        }
+    }
+
     if (snapshot.isHiddenByPolicyFromParent &&
         !snapshot.changes.test(RequestedLayerState::Changes::Created)) {
         if (forceUpdate ||
@@ -847,22 +863,6 @@ void LayerSnapshotBuilder::updateSnapshot(LayerSnapshot& snapshot, const Args& a
         snapshot.changes.any(RequestedLayerState::Changes::Metadata |
                              RequestedLayerState::Changes::Hierarchy)) {
         updateMetadataAndGameMode(snapshot, requested, args, parentSnapshot);
-    }
-
-    if (forceUpdate || snapshot.clientChanges & layer_state_t::eFixedTransformHintChanged ||
-        args.displayChanges) {
-        snapshot.fixedTransformHint = requested.fixedTransformHint != ui::Transform::ROT_INVALID
-                ? requested.fixedTransformHint
-                : parentSnapshot.fixedTransformHint;
-
-        if (snapshot.fixedTransformHint != ui::Transform::ROT_INVALID) {
-            snapshot.transformHint = snapshot.fixedTransformHint;
-        } else {
-            const auto display = args.displays.get(snapshot.outputFilter.layerStack);
-            snapshot.transformHint = display.has_value()
-                    ? std::make_optional<>(display->get().transformHint)
-                    : std::nullopt;
-        }
     }
 
     if (forceUpdate ||
