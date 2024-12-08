@@ -602,6 +602,8 @@ private:
     ftl::Optional<scheduler::OneShotTimer> mIdleTimer;
     std::atomic<bool> mIdleTimerStarted = false;
 
+    Fps mIdleFps = 60_Hz;
+
     // Returns the range of supported frame rates.
     FpsRange getSupportedFrameRateRangeLocked() const REQUIRES(mLock);
 };
