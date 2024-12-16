@@ -4942,6 +4942,19 @@ InputEventInjectionResult InputDispatcher::injectInputEvent(const InputEvent* ev
                 return InputEventInjectionResult::FAILED;
             }
 
+            if (!(policyFlags & POLICY_FLAG_PASS_TO_USER)) {
+                // Set the flag anyway if we already have an ongoing motion gesture. That
+                // would allow us to complete the processing of the current stroke.
+                const auto touchStateIt = mTouchStatesByDisplay.find(displayId);
+                if (touchStateIt != mTouchStatesByDisplay.end()) {
+                    const TouchState& touchState = touchStateIt->second;
+                    if (touchState.hasTouchingPointers(resolvedDeviceId) ||
+                        touchState.hasHoveringPointers(resolvedDeviceId)) {
+                        policyFlags |= POLICY_FLAG_PASS_TO_USER;
+                    }
+                }
+            }
+
             const nsecs_t* sampleEventTimes = motionEvent.getSampleEventTimes();
             const size_t pointerCount = motionEvent.getPointerCount();
             const std::vector<PointerProperties>
