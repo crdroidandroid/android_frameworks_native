@@ -1571,6 +1571,60 @@ TEST_F(InputDispatcherTest, HoverEventInconsistentPolicy) {
     window->consumeMotionEvent(WithMotionAction(ACTION_HOVER_EXIT));
 }
 
+// Still send inject motion events to window which already be touched.
+TEST_F(InputDispatcherTest, AlwaysDispatchInjectMotionEventWhenAlreadyDownForWindow) {
+    std::shared_ptr<FakeApplicationHandle> application1 = std::make_shared<FakeApplicationHandle>();
+    sp<FakeWindowHandle> window1 =
+            sp<FakeWindowHandle>::make(application1, mDispatcher, "window1",
+                                       ui::LogicalDisplayId::DEFAULT);
+    window1->setFrame(Rect(0, 0, 100, 100));
+    window1->setWatchOutsideTouch(false);
+
+    std::shared_ptr<FakeApplicationHandle> application2 = std::make_shared<FakeApplicationHandle>();
+    sp<FakeWindowHandle> window2 =
+            sp<FakeWindowHandle>::make(application2, mDispatcher, "window2",
+                                       ui::LogicalDisplayId::DEFAULT);
+    window2->setFrame(Rect(50, 50, 100, 100));
+    window2->setWatchOutsideTouch(true);
+    mDispatcher->onWindowInfosChanged({{*window2->getInfo(), *window1->getInfo()}, {}, 0, 0});
+
+    std::chrono::milliseconds injectionTimeout = INJECT_EVENT_TIMEOUT;
+    InputEventInjectionSync injectionMode = InputEventInjectionSync::WAIT_FOR_RESULT;
+    std::optional<gui::Uid> targetUid = {};
+    uint32_t policyFlags = DEFAULT_POLICY_FLAGS;
+
+    const MotionEvent eventDown1 = MotionEventBuilder(ACTION_DOWN, AINPUT_SOURCE_TOUCHSCREEN)
+        .pointer(PointerBuilder(0, ToolType::FINGER).x(60).y(60)).deviceId(-1)
+        .build();
+    injectMotionEvent(*mDispatcher, eventDown1, injectionTimeout, injectionMode, targetUid,
+        policyFlags);
+    window2->consumeMotionEvent(WithMotionAction(ACTION_DOWN));
+
+    const MotionEvent eventUp1 = MotionEventBuilder(ACTION_UP, AINPUT_SOURCE_TOUCHSCREEN)
+        .pointer(PointerBuilder(0, ToolType::FINGER).x(60).y(60)).deviceId(-1)
+        .downTime(eventDown1.getDownTime()).build();
+    // Inject UP event, without the POLICY_FLAG_PASS_TO_USER (to simulate policy behaviour
+    // when screen is off).
+    injectMotionEvent(*mDispatcher, eventUp1, injectionTimeout, injectionMode, targetUid,
+        /*policyFlags=*/0);
+    window2->consumeMotionEvent(WithMotionAction(ACTION_UP));
+    const MotionEvent eventDown2 = MotionEventBuilder(ACTION_DOWN, AINPUT_SOURCE_TOUCHSCREEN)
+        .pointer(PointerBuilder(0, ToolType::FINGER).x(40).y(40)).deviceId(-1)
+        .build();
+    injectMotionEvent(*mDispatcher, eventDown2, injectionTimeout, injectionMode, targetUid,
+        policyFlags);
+    window1->consumeMotionEvent(WithMotionAction(ACTION_DOWN));
+    window2->consumeMotionEvent(WithMotionAction(ACTION_OUTSIDE));
+
+    const MotionEvent eventUp2 = MotionEventBuilder(ACTION_UP, AINPUT_SOURCE_TOUCHSCREEN)
+        .pointer(PointerBuilder(0, ToolType::FINGER).x(60).y(60)).deviceId(-1)
+        .downTime(eventDown2.getDownTime()).build();
+    injectMotionEvent(*mDispatcher, eventUp2, injectionTimeout, injectionMode, targetUid,
+        /*policyFlags=*/0);
+    window1->consumeMotionEvent(WithMotionAction(ACTION_UP));
+    window2->assertNoEvents();
+}
+
 /**
  * Two windows: a window on the left and a window on the right.
  * Mouse is hovered from the right window into the left window.
