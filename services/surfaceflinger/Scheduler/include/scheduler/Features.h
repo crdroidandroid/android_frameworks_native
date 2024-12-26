@@ -30,6 +30,7 @@ enum class Feature : std::uint8_t {
     kBackpressureGpuComposition = 1 << 4,
     kSmallDirtyContentDetection = 1 << 5,
     kExpectedPresentTime = 1 << 6,
+    kPropagateBackpressure = 1 << 7,
 };
 
 using FeatureFlags = ftl::Flags<Feature>;

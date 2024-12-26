@@ -140,14 +140,14 @@ void FrameTargeter::beginFrame(const BeginFrameArgs& args, const IVsyncSource& v
                 mBackpressureGpuComposition || !mCompositionCoverage.test(CompositionCoverage::Gpu);
 
         if (!FlagManager::getInstance().allow_n_vsyncs_in_targeter()) {
-            return static_cast<int>(considerBackpressure);
+            return mPropagateBackpressure && static_cast<int>(considerBackpressure);
         }
 
         if (!wouldBackpressure || !considerBackpressure) {
-            return 0;
+            return false;
         }
 
-        return static_cast<int>((std::abs(fence.expectedPresentTime.ns() - mFrameBeginTime.ns()) <=
+        return mPropagateBackpressure && static_cast<int>((std::abs(fence.expectedPresentTime.ns() - mFrameBeginTime.ns()) <=
                                  Duration(1ms).ns()));
     }();
 
