@@ -7,7 +7,7 @@ on late-init
     chmod 0222 /sys/kernel/tracing/trace_marker
 
 # Scheduler tracepoints require schedstats=enable
-    write /proc/sys/kernel/sched_schedstats 1
+    write /proc/sys/kernel/sched_schedstats 0
 
 # Grant unix world read/write permissions to kernel tracepoints.
 # Access control to these files is now entirely in selinux policy.
