@@ -357,7 +357,10 @@ void AddLayerLibrary(const std::string& path, const std::string& filename) {
 }
 
 template <typename Functor>
-void ForEachFileInDir(const std::string& dirname, Functor functor) {
+void ForEachFileInDir(const std::string& dirname,
+                      const std::string filename_prefix,
+                      const std::string filename_suffix,
+                      Functor functor) {
     auto dir_deleter = [](DIR* handle) { closedir(handle); };
     std::unique_ptr<DIR, decltype(dir_deleter)> dir(opendir(dirname.c_str()),
                                                     dir_deleter);
@@ -372,12 +375,16 @@ void ForEachFileInDir(const std::string& dirname, Functor functor) {
     ALOGD("searching for layers in '%s'", dirname.c_str());
     dirent* entry;
     while ((entry = readdir(dir.get())) != nullptr)
-        functor(entry->d_name);
+        if (android::base::StartsWith(entry->d_name, filename_prefix) &&
+            android::base::EndsWith(entry->d_name, filename_suffix))
+            functor(entry->d_name);
 }
 
 template <typename Functor>
 void ForEachFileInZip(const std::string& zipname,
                       const std::string& dir_in_zip,
+                      const std::string filename_prefix,
+                      const std::string filename_suffix,
                       Functor functor) {
     static const size_t kPageSize = getpagesize();
     int32_t err;
@@ -388,7 +395,8 @@ void ForEachFileInZip(const std::string& zipname,
     }
     std::string prefix(dir_in_zip + "/");
     void* iter_cookie = nullptr;
-    if ((err = StartIteration(zip, &iter_cookie, prefix, "")) != 0) {
+    if ((err = StartIteration(zip, &iter_cookie, prefix + filename_prefix,
+                              filename_suffix)) != 0) {
         ALOGE("failed to iterate entries in apk '%s': %d", zipname.c_str(),
               err);
         CloseArchive(zip);
@@ -416,44 +424,41 @@ void ForEachFileInZip(const std::string& zipname,
 }
 
 template <typename Functor>
-void ForEachFileInPath(const std::string& path, Functor functor) {
+void ForEachFileInPath(const std::string& path,
+                       const std::string filename_prefix,
+                       const std::string filename_suffix,
+                       Functor functor) {
     size_t zip_pos = path.find("!/");
     if (zip_pos == std::string::npos) {
-        ForEachFileInDir(path, functor);
+        ForEachFileInDir(path, filename_prefix, filename_suffix, functor);
     } else {
         ForEachFileInZip(path.substr(0, zip_pos), path.substr(zip_pos + 2),
-                         functor);
+                         filename_prefix, filename_suffix, functor);
     }
 }
 
 void DiscoverLayersInPathList(const std::string& pathstr) {
     ATRACE_CALL();
-
     std::vector<std::string> paths = android::base::Split(pathstr, ":");
     for (const auto& path : paths) {
-        ForEachFileInPath(path, [&](const std::string& filename) {
-            if (android::base::StartsWith(filename, "libVkLayer") &&
-                android::base::EndsWith(filename, ".so")) {
-
-                // Check to ensure we haven't seen this layer already
-                // Let the first instance of the shared object be enumerated
-                // We're searching for layers in following order:
-                // 1. system path
-                // 2. libraryPermittedPath (if enabled)
-                // 3. libraryPath
-
-                bool duplicate = false;
-                for (auto& layer : g_layer_libraries) {
-                    if (layer.GetFilename() == filename) {
-                        ALOGV("Skipping duplicate layer %s in %s",
-                              filename.c_str(), path.c_str());
-                        duplicate = true;
-                    }
+        ForEachFileInPath(
+            path, "libVkLayer", ".so", [&](const std::string& filename) {
+            // Check to ensure we haven't seen this layer already
+            // Let the first instance of the shared object be enumerated
+            // We're searching for layers in following order:
+            // 1. system path
+            // 2. libraryPermittedPath (if enabled)
+            // 3. libraryPath
+            bool duplicate = false;
+            for (auto& layer : g_layer_libraries) {
+                if (layer.GetFilename() == filename) {
+                    ALOGV("Skipping duplicate layer %s in %s",
+                          filename.c_str(), path.c_str());
+                    duplicate = true;
                 }
-
-                if (!duplicate)
-                    AddLayerLibrary(path, filename);
             }
+            if (!duplicate)
+                AddLayerLibrary(path, filename);
         });
     }
 }
