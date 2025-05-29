@@ -38,7 +38,12 @@ cc_defaults {
         "-Wthread-safety",
         "-Wunreachable-code",
         "-Wunused",
-    ],
+    ] + select(soong_config_variable("surfaceflinger", "frame_rate_category_high"), {
+        any @ value: [
+            "-DFRAME_RATE_CATEGORY_HIGH=" + value,
+        ],
+        default: [],
+    }),
 }
 
 cc_defaults {

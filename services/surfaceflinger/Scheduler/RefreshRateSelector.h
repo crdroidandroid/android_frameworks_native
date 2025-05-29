@@ -40,6 +40,19 @@ namespace android::scheduler {
 
 using namespace std::chrono_literals;
 
+
+#ifdef FRAME_RATE_CATEGORY_HIGH
+constexpr Fps intToFps(int val) {
+    switch(val) {
+        case 60: return 60_Hz;
+        case 90: return 90_Hz;
+        case 120: return 120_Hz;
+        case 144: return 144_Hz;
+        default: return 90_Hz; // fallback default
+    }
+}
+#endif
+
 // Selects the refresh rate of a display by ranking its `DisplayModes` in accordance with
 // the DisplayManager (or override) `Policy`, the `LayerRequirement` of each active layer,
 // and `GlobalSignals`.
@@ -53,7 +66,11 @@ public:
     static constexpr Fps kMinSupportedFrameRate = 20_Hz;
 
     // Start range for FrameRateCategory Normal and High.
+#ifdef FRAME_RATE_CATEGORY_HIGH
+    static constexpr Fps kFrameRateCategoryRateHigh = intToFps(FRAME_RATE_CATEGORY_HIGH);
+#else
     static constexpr Fps kFrameRateCategoryRateHigh = 90_Hz;
+#endif
     static constexpr Fps kFrameRateCategoryRateNormal = 60_Hz;
     static constexpr std::pair<Fps, Fps> kFrameRateCategoryRates = {kFrameRateCategoryRateNormal,
                                                                     kFrameRateCategoryRateHigh};
