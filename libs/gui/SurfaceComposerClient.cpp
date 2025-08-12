@@ -1073,7 +1073,7 @@ void SurfaceComposerClient::Transaction::cacheBuffers() {
 
         uint64_t cacheId = 0;
         status_t ret = BufferCache::getInstance().getCacheId(s->bufferData->buffer, &cacheId);
-        if (ret == NO_ERROR) {
+        if (ret == NO_ERROR && s->bufferData->frameNumber > 8) {
             // Cache-hit. Strip the buffer and send only the id.
             s->bufferData->buffer = nullptr;
         } else {
