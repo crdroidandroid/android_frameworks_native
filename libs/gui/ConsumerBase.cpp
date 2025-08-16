@@ -439,14 +439,18 @@ status_t ConsumerBase::getOccupancyHistory(bool forceFlush,
 }
 
 status_t ConsumerBase::discardFreeBuffers() {
-    Mutex::Autolock _l(mMutex);
-    if (mAbandoned) {
+    if (isAbandoned()) {
         CB_LOGE("discardFreeBuffers: ConsumerBase is abandoned!");
         return NO_INIT;
     }
     status_t err = mConsumer->discardFreeBuffers();
     if (err != OK) {
         return err;
+    }
+    Mutex::Autolock _l(mMutex);
+    if (mAbandoned) {
+        CB_LOGE("discardFreeBuffers: ConsumerBase is abandoned!");
+        return NO_INIT;
     }
     uint64_t mask;
     mConsumer->getReleasedBuffers(&mask);
