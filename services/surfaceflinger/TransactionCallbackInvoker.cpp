@@ -225,6 +225,10 @@ void TransactionCallbackInvoker::sendCallbacks(bool onCommitOnly) {
         mPresentFence.clear();
     }
 
+    if (listenerStatsToSend.empty()) {
+        return;
+    }
+
     BackgroundExecutor::getInstance().sendCallbacks(
             {[listenerStatsToSend = std::move(listenerStatsToSend)]() {
                 SFTRACE_NAME("TransactionCallbackInvoker::sendCallbacks");
