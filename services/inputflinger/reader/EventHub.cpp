@@ -2336,6 +2336,12 @@ void EventHub::openDeviceLocked(const std::string& devicePath) {
     // is possible that the same input event node (for example, /dev/input/event3) will be noticed
     // in both 'inotify' callback and also in the 'scanDirLocked' pass. To prevent duplicate devices
     // from getting registered, ensure that this path is not already covered by an existing device.
+    for (const auto& device : mOpeningDevices) {
+        if (device->path == devicePath) {
+            return; // device was already registered
+        }
+    }
+
     for (const auto& [deviceId, device] : mDevices) {
         if (device->path == devicePath) {
             return; // device was already registered
