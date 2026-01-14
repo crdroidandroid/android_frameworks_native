@@ -43,6 +43,11 @@ cc_defaults {
             "-DFRAME_RATE_CATEGORY_HIGH=" + value,
         ],
         default: [],
+    }) + select(soong_config_variable("surfaceflinger", "frame_rate_category_min"), {
+        any @ value: [
+            "-DFRAME_RATE_CATEGORY_MIN=" + value,
+        ],
+        default: [],
     }),
 }
 
