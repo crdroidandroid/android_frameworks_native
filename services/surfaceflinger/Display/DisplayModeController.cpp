@@ -99,7 +99,7 @@ auto DisplayModeController::setDesiredMode(PhysicalDisplayId displayId,
 
     {
         SFTRACE_NAME(displayPtr->concatId(__func__).c_str());
-        ALOGD("%s %s", displayPtr->concatId(__func__).c_str(), to_string(desiredMode).c_str());
+        ALOGV("%s %s", displayPtr->concatId(__func__).c_str(), to_string(desiredMode).c_str());
 
         std::scoped_lock lock(displayPtr->desiredModeLock);
 
