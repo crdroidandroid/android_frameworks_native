@@ -700,6 +700,10 @@ std::vector<TouchedWindow> getHoveringWindowsLocked(const TouchState* oldState,
                     // has known inconsistencies, so log ERROR instead of
                     // crashing the device with FATAL.
                     severity = android::base::LogSeverity::ERROR;
+                } else if (entry.isSynthesized()) {
+                    // Synthetic or injected events may produce an inconsistent hover stream
+                    // Downgrade to a warning rather than crashing the system.
+                    severity = android::base::LogSeverity::WARNING;
                 }
                 dump();
                 LOG(severity) << "Expected ACTION_HOVER_MOVE instead of " << entry.getDescription();
