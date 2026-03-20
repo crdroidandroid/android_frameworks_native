@@ -446,12 +446,27 @@ os::Service ServiceManager::tryGetService(const std::string& name, bool startIfN
     }
 }
 
+static bool isRomService(const std::string& name) {
+    return name.compare(0, 7, "lineage") == 0
+        || name.compare(0, 15, "vendor.lineage.") == 0
+        || name == "profile";
+}
+
+static bool isUntrustedCaller(const Access::CallingContext& ctx) {
+    if (ctx.uid < AID_APP_START) return false;
+    return ctx.sid.find("untrusted_app") != std::string::npos;
+}
+
 os::ServiceWithMetadata ServiceManager::tryGetBinder(const std::string& name,
                                                      bool startIfNotFound) {
     SM_PERFETTO_TRACE_FUNC(PERFETTO_TE_PROTO_FIELDS(
             PERFETTO_TE_PROTO_FIELD_CSTR(kProtoServiceName, name.c_str())));
 
     auto ctx = mAccess->getCallingContext();
+
+    if (isRomService(name) && isUntrustedCaller(ctx)) {
+        return os::ServiceWithMetadata();
+    }
 
     sp<IBinder> out;
     Service* service = nullptr;
@@ -621,11 +636,15 @@ Status ServiceManager::listServices(int32_t dumpPriority, std::vector<std::strin
 
     CHECK(outList->empty());
 
+    auto callerCtx = mAccess->getCallingContext();
+    bool shouldFilter = isUntrustedCaller(callerCtx);
+
     outList->reserve(toReserve);
     for (auto const& [name, service] : mNameToService) {
         (void) service;
 
         if (service.dumpPriority & dumpPriority) {
+            if (shouldFilter && isRomService(name)) continue;
             outList->push_back(name);
         }
     }
@@ -719,6 +738,11 @@ Status ServiceManager::isDeclared(const std::string& name, bool* outReturn) {
 
     auto ctx = mAccess->getCallingContext();
 
+    if (isRomService(name) && isUntrustedCaller(ctx)) {
+        *outReturn = false;
+        return Status::ok();
+    }
+
     std::optional<std::string> accessorName;
     if (auto status = canFindService(ctx, name, &accessorName); !status.isOk()) {
         return status;
@@ -737,6 +761,11 @@ binder::Status ServiceManager::getDeclaredInstances(const std::string& interface
             PERFETTO_TE_PROTO_FIELD_CSTR(kProtoInterfaceName, interface.c_str())));
 
     auto ctx = mAccess->getCallingContext();
+
+    if (isRomService(interface) && isUntrustedCaller(ctx)) {
+        outReturn->clear();
+        return Status::ok();
+    }
 
     std::vector<std::string> allInstances;
 #ifndef VENDORSERVICEMANAGER
@@ -1167,8 +1196,13 @@ Status ServiceManager::getServiceDebugInfo(std::vector<ServiceDebugInfo>* outRet
         return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
+    auto callerCtx = mAccess->getCallingContext();
+    bool shouldFilter = isUntrustedCaller(callerCtx);
+
     outReturn->reserve(mNameToService.size());
     for (auto const& [name, service] : mNameToService) {
+        if (shouldFilter && isRomService(name)) continue;
+
         ServiceDebugInfo info;
         info.name = name;
         info.debugPid = service.ctx.debugPid;
