@@ -1431,7 +1431,7 @@ std::optional<base::unique_fd> Output::composeSurfaces(
                                                    clientCompositionLayers)) {
             SFTRACE_NAME("ClientCompositionCacheHit");
             outputCompositionState.reusedClientComposition = true;
-            setExpensiveRenderingExpected(false);
+            setExpensiveRenderingExpected(mLayerRequestingBackgroundBlur != nullptr);
             // b/239944175 pass the fence associated with the buffer.
             return base::unique_fd(std::move(fd));
         }
