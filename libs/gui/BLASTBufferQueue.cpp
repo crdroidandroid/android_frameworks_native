@@ -20,6 +20,7 @@
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 //#define LOG_NDEBUG 0
 
+#include <atomic>
 #include <com_android_graphics_libgui_flags.h>
 #include <cutils/atomic.h>
 #include <ftl/fake_guard.h>
@@ -81,12 +82,26 @@ timespec timespecFromNanos(nsecs_t duration) {
 
 inline int epoll_wait_with_timeout(int epfd, struct epoll_event* events, int maxevents,
                                    const timespec* timeout) {
-    static bool useEpollWait = false;
-    if (!useEpollWait) {
+    // 0 = unknown, 1 = supported, 2 = unsupported
+    static std::atomic<int> state{0};
+
+    int s = state.load(std::memory_order_relaxed);
+
+    if (s != 2) {
+        if (s == 1) {
+            return epoll_pwait2(epfd, events, maxevents, timeout, nullptr);
+        }
+
         int ret = epoll_pwait2(epfd, events, maxevents, timeout, nullptr);
+
         if (ret == -1 && errno == ENOSYS) {
-            useEpollWait = true;
+            int expected = 0;
+            if (state.compare_exchange_strong(expected, 2,
+                                              std::memory_order_relaxed)) {
+                ALOGW("epoll_pwait2 not supported, falling back to epoll_wait");
+            }
         } else {
+            state.store(1, std::memory_order_relaxed);
             return ret;
         }
     }
