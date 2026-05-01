@@ -14,12 +14,24 @@
 # limitations under the License.
 #
 
-# Provides overrides to configure the Dalvik heap for a xhdpi phone
+# Provides overrides to configure the Dalvik heap for a 1GB phone
 
-PRODUCT_VENDOR_PROPERTIES += \
+PRODUCT_PRODUCT_PROPERTIES += \
     dalvik.vm.heapstartsize?=8m \
     dalvik.vm.heapgrowthlimit?=96m \
     dalvik.vm.heapsize?=256m \
     dalvik.vm.heaptargetutilization?=0.75 \
     dalvik.vm.heapminfree?=2m \
-    dalvik.vm.heapmaxfree?=8m
+    dalvik.vm.heapmaxfree?=8m \
+    dalvik.vm.usejit?=true \
+    dalvik.vm.jitmaxsize?=64m \
+    dalvik.vm.jitinitialsize?=8m \
+    dalvik.vm.jitthreshold?=20000 \
+    dalvik.vm.madvise.vdexfile.size?=52428800 \
+    dalvik.vm.madvise.odexfile.size?=52428800 \
+    dalvik.vm.usap_pool_enabled?=true \
+    dalvik.vm.usap_pool_size_min?=1 \
+    dalvik.vm.usap_pool_size_max?=1 \
+    dalvik.vm.usap_refill_threshold?=1 \
+    dalvik.vm.usap_pool_refill_delay_ms?=3000 \
+    persist.sys.pinner.quota_pct?=5

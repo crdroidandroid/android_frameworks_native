@@ -16,14 +16,24 @@
 
 # Provides overrides to configure the Dalvik heap for an 8GB phone
 
-PRODUCT_VENDOR_PROPERTIES += \
+PRODUCT_PRODUCT_PROPERTIES += \
     dalvik.vm.heapstartsize?=16m \
-    dalvik.vm.heapgrowthlimit?=256m \
+    dalvik.vm.heapgrowthlimit?=384m \
     dalvik.vm.heapsize?=512m \
-    dalvik.vm.heaptargetutilization?=0.6 \
-    dalvik.vm.heapminfree?=12m \
-    dalvik.vm.heapmaxfree?=48m \
-    dalvik.vm.usap_pool_enabled?=true \
-    dalvik.vm.usap_pool_size_max?=3 \
+    dalvik.vm.heaptargetutilization?=0.75 \
+    dalvik.vm.heapminfree?=4m \
+    dalvik.vm.heapmaxfree?=64m \
+    dalvik.vm.foreground-heap-growth-multiplier?=1.0 \
+    dalvik.vm.enable_time_based_gc_trigger?=true \
+    dalvik.vm.usejit?=true \
+    dalvik.vm.jitmaxsize?=256m \
+    dalvik.vm.jitinitialsize?=32m \
+    dalvik.vm.jitthreshold?=10000 \
+    dalvik.vm.parallel-image-loading?=true \
     dalvik.vm.madvise.vdexfile.size?=157286400 \
-    dalvik.vm.madvise.odexfile.size?=157286400
+    dalvik.vm.madvise.odexfile.size?=157286400 \
+    dalvik.vm.usap_pool_enabled?=true \
+    dalvik.vm.usap_pool_size_min?=1 \
+    dalvik.vm.usap_pool_size_max?=3 \
+    dalvik.vm.usap_refill_threshold?=1 \
+    dalvik.vm.usap_pool_refill_delay_ms?=3000
