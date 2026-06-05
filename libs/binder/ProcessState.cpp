@@ -45,7 +45,7 @@
 #include <unistd.h>
 #include <mutex>
 
-#define BINDER_VM_SIZE ((1 * 1024 * 1024) - sysconf(_SC_PAGE_SIZE) * 2)
+#define BINDER_VM_SIZE ((4 * 1024 * 1024) - sysconf(_SC_PAGE_SIZE) * 2)
 #define DEFAULT_MAX_BINDER_THREADS 15
 #define DEFAULT_ENABLE_ONEWAY_SPAM_DETECTION 1
 
