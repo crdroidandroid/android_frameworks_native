@@ -357,6 +357,8 @@ public:
 
     virtual uid_t getOwnerUid() const { return mOwnerUid; }
 
+    gui::WindowInfo::Type getWindowType() const { return mWindowType; }
+
     // Used to check if mUsedVsyncIdForRefreshRateSelection should be expired when it stop updating.
     nsecs_t mMaxTimeForUseVsyncId = 0;
     // True when DrawState.useVsyncIdForRefreshRateSelection previously set to true during updating
