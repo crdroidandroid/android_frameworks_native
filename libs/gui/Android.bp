@@ -410,7 +410,10 @@ cc_defaults {
     cflags: [
         "-DANDROID_UTILS_REF_BASE_DISABLE_IMPLICIT_CONSTRUCTION",
         "-Wthread-safety",
-    ],
+    ] +  select(soong_config_variable("libgui", "support_mtk_ged_kpi"), {
+        true: ["-DENABLE_MTK_GED_KPI"],
+        default: [],
+    }},
 }
 
 // Used by media codec services exclusively as a static lib for
