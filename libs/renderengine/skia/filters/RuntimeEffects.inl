@@ -30,6 +30,8 @@ Y(BT2020_HLG__UNKNOWN__false__UNKNOWN__Shader,              19)
 X(KawaseDarkmoon_QuarterResDownSampleBlurEffect,            20)
 X(KawaseDarkmoon_HalfResDownSampleBlurEffect,               21)
 X(KawaseDarkmoon_UpSampleBlurEffect,                        22)
+X(LiquidGlassEffect,                                        23)
+X(CosGlassEffect,                                           24)
 
  // IMPORTANT: Do not change the order of existing effects in this list.
  //

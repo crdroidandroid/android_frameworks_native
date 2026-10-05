@@ -906,6 +906,9 @@ void SkiaRenderEngine::drawLayersInternal(
     }
 
     validateOutputBufferUsage(buffer->getBuffer());
+    if (mBlurFilter) {
+        mBlurFilter->setDisplay(display.namePlusId);
+    }
 
     auto context = getActiveContext();
     LOG_ALWAYS_FATAL_IF(context->isAbandonedOrDeviceLost(),
@@ -1154,9 +1157,13 @@ void SkiaRenderEngine::drawLayersInternal(
                                                                 layer.backgroundBlurRadius,
                                                                 blurInput, blurRect);
 
+                    // Only the shade's backdrop is Liquid Glass; any other window blur, such as
+                    // home's wallpaper blur while an app closes, stays a plain blur.
+                    const int32_t material =
+                            layer.name.starts_with("VRI-NotificationShade#") ? 0 : -1;
                     mBlurFilter->drawBlurRegion(canvas, bounds, layer.backgroundBlurRadius,
                                                 layer.backgroundBlurScale, 1.0f, blurRect,
-                                                temporaryBlurredImage, blurInput);
+                                                temporaryBlurredImage, blurInput, material);
                 }
 
                 if (layer.blurRegions.size()) {
@@ -1169,22 +1176,25 @@ void SkiaRenderEngine::drawLayersInternal(
                     // semi-arbitrarily.
                     using BlurRegionList = ftl::SmallVector<BlurRegion, 4>;
                     ftl::SmallMap<uint32_t, BlurRegionList, 2> regionsPerRadius;
-                    for (const BlurRegion& region : layer.blurRegions) {
-                        if (region.blurRadius > 0) {
-                            const auto& [entry, _] = regionsPerRadius.try_emplace(region.blurRadius,
-                                                                                  BlurRegionList());
-                            entry->second.push_back(region);
+                    for (const bool panel : {true, false}) {
+                        for (const BlurRegion& region : layer.blurRegions) {
+                            if (region.blurRadius > 0 && (region.material >= 5) == panel) {
+                                const auto& [entry, _] =
+                                        regionsPerRadius.try_emplace(region.blurRadius,
+                                                                     BlurRegionList());
+                                entry->second.push_back(region);
+                            }
                         }
                     }
 
                     const auto drawRegion =
-                            [this, canvas, &blurRect,
+                            [this, canvas,
                              &blurInput](const sk_sp<SkImage>& temporaryBlurredImage,
-                                         const BlurRegion& region) {
+                                         const SkRect& blurredRect, const BlurRegion& region) {
                                 mBlurFilter->drawBlurRegion(canvas, getBlurRRect(region),
                                                             region.blurRadius, 1.0f, region.alpha,
-                                                            blurRect, temporaryBlurredImage,
-                                                            blurInput);
+                                                            blurredRect, temporaryBlurredImage,
+                                                            blurInput, region.material);
                             };
 
                     // Reuse existing temporaryBlurredImage from background blur for any regions
@@ -1193,21 +1203,37 @@ void SkiaRenderEngine::drawLayersInternal(
                         regionsPerRadius.contains(layer.backgroundBlurRadius)) {
                         for (const BlurRegion& region :
                              regionsPerRadius.get(layer.backgroundBlurRadius)->get()) {
-                            drawRegion(temporaryBlurredImage, region);
+                            drawRegion(temporaryBlurredImage, blurRect, region);
                         }
                         regionsPerRadius.erase(layer.backgroundBlurRadius);
                     }
 
-                    // Draw remaining regions for each blur radius.
+                    // Draw remaining regions for each blur radius. Their blur only has to cover
+                    // the regions themselves, plus the blur radius around them so their edges
+                    // still see the content next to them. Blurring the whole layer instead costs
+                    // a full screen pass for every radius, e.g. for small Liquid Glass tiles over
+                    // a shade that blurs at a different radius.
                     for (const auto& [radius, regions] : regionsPerRadius) {
+                        SkRect regionsRect = SkRect::MakeEmpty();
+                        for (const BlurRegion& region : regions) {
+                            regionsRect.join(
+                                    canvas->getTotalMatrix().mapRect(getBlurRRect(region).rect()));
+                        }
+                        const float margin = canvas->getTotalMatrix().mapRadius(radius);
+                        regionsRect.outset(margin, margin);
+                        SkRect regionsBlurRect = blurRect;
+                        if (!regionsBlurRect.intersect(regionsRect)) {
+                            continue;
+                        }
                         {
                             SFTRACE_NAME("BlurRegion");
                             temporaryBlurredImage =
                                     mBlurFilter->generateTemporaryImage(context, display, radius,
-                                                                        blurInput, blurRect);
+                                                                        blurInput,
+                                                                        regionsBlurRect);
                         }
                         for (const BlurRegion& region : regions) {
-                            drawRegion(temporaryBlurredImage, region);
+                            drawRegion(temporaryBlurredImage, regionsBlurRect, region);
                         }
                     }
                 }
