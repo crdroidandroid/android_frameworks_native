@@ -657,6 +657,7 @@ std::vector<PrecompileSettings> chooseBlurPrecompileSettings(RuntimeEffectManage
         case RenderEngine::BlurAlgorithm::Gaussian:
         case RenderEngine::BlurAlgorithm::Kawase:
         case RenderEngine::BlurAlgorithm::KawaseDualFilterV2:
+        case RenderEngine::BlurAlgorithm::KawaseDarkmoon:
             ALOGW("Pipeline precompilation for %s is not yet supported",
                   ftl::enum_string_full(effectManager.getChosenBlurAlgorithm()).c_str());
             break;

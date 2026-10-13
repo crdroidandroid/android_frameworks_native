@@ -111,6 +111,7 @@ filegroup {
         "skia/filters/GaussianBlurFilter.cpp",
         "skia/filters/KawaseBlurDualFilterV2.cpp",
         "skia/filters/KawaseBlurFilter.cpp",
+        "skia/filters/KawaseDarkmoon.cpp",
         "skia/filters/LutShader.cpp",
         "skia/filters/MouriMap.cpp",
         "skia/filters/RuntimeEffectManager.cpp",
