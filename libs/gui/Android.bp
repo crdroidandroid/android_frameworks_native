@@ -468,7 +468,10 @@ cc_defaults {
         "-DANDROID_UTILS_REF_BASE_DISABLE_IMPLICIT_CONSTRUCTION",
         "-DFMT_CPP_LIB_FILESYSTEM=0", // b/455625875
         "-Wthread-safety",
-    ],
+    ] +  select(soong_config_variable("libgui", "support_mtk_ged_kpi"), {
+        true: ["-DENABLE_MTK_GED_KPI"],
+        default: [],
+    }),
 }
 
 // Used by media codec services exclusively as a static lib for
