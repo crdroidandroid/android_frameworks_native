@@ -97,6 +97,16 @@ public:
                                   const std::string& packageName, int32_t userId, int32_t flags,
                                   int64_t ceDataInode);
     binder::Status fixupAppData(const std::optional<std::string>& uuid, int32_t flags);
+    binder::Status replaceAppEmojiFonts(const std::optional<std::string>& uuid,
+                                        const std::string& packageName, int32_t userId,
+                                        int32_t appId,
+                                        const android::os::ParcelFileDescriptor& fontFd,
+                                        const std::vector<std::string>& lockedFiles,
+                                        int32_t* _aidl_return);
+    binder::Status clearAppDataSubdir(const std::optional<std::string>& uuid,
+                                      const std::string& packageName, int32_t userId,
+                                      int32_t appId, const std::string& relativePath,
+                                      bool block);
 
     binder::Status snapshotAppData(const std::optional<std::string>& volumeUuid,
                                    const std::string& packageName, const int32_t user,
