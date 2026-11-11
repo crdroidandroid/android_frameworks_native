@@ -1357,9 +1357,10 @@ binder::Status InstalldNativeService::clearAppData(const std::optional<std::stri
 }
 
 // Same match as the Magisk emoji modules: apps that bundle or download their own emoji font.
-static bool is_emoji_font_name(const char* name) {
+static bool is_emoji_font_name(const std::string& name) {
     std::string lower(name);
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(::tolower(c)); });
     return lower.find("emoji") != std::string::npos && base::EndsWith(lower, ".ttf");
 }
 
@@ -1400,10 +1401,18 @@ static bool write_font_file(int dirFd, const std::string& name, int srcFd, uid_t
 }
 
 static unique_fd make_app_dir(int parentFd, const std::string& name, uid_t uid) {
-    if (mkdirat(parentFd, name.c_str(), 0700) < 0 && errno != EEXIST) return {};
+    bool created = mkdirat(parentFd, name.c_str(), 0700) == 0;
+    if (!created && errno != EEXIST) return {};
     unique_fd fd(openat(parentFd, name.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
-    if (!fd.ok() || fchown(fd.get(), uid, uid) < 0 || !copy_label(parentFd, fd.get())) {
-        return {};
+    if (!fd.ok()) return {};
+    if (created) {
+        if (fchown(fd.get(), uid, uid) < 0 || !copy_label(parentFd, fd.get())) return {};
+    } else {
+        struct stat st;
+        if (fstat(fd.get(), &st) < 0 || st.st_uid != uid) {
+            errno = EACCES;
+            return {};
+        }
     }
     return fd;
 }
@@ -1435,42 +1444,61 @@ static constexpr int kMaxEmojiFontDepth = 16;
 // The app's owner, mode and label are carried over to the new file.
 static int replace_emoji_fonts_in_dir(int dirFd, uid_t uid, int srcFd, int depth) {
     if (depth > kMaxEmojiFontDepth) return 0;
-    int listFd = fcntl(dirFd, F_DUPFD_CLOEXEC, 0);
-    std::unique_ptr<DIR, decltype(&closedir)> dir(listFd < 0 ? nullptr : fdopendir(listFd),
-                                                  closedir);
-    if (!dir) {
-        if (listFd >= 0) close(listFd);
-        return 0;
+
+    std::vector<std::pair<std::string, unsigned char>> entries;
+    {
+        int listFd = fcntl(dirFd, F_DUPFD_CLOEXEC, 0);
+        std::unique_ptr<DIR, decltype(&closedir)> dir(listFd < 0 ? nullptr : fdopendir(listFd),
+                                                      closedir);
+        if (!dir) {
+            if (listFd >= 0) close(listFd);
+            return 0;
+        }
+        for (dirent* de = readdir(dir.get()); de != nullptr; de = readdir(dir.get())) {
+            if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
+            unsigned char type = de->d_type;
+            if (type == DT_UNKNOWN) {
+                // Not every filesystem fills in d_type.
+                struct stat st;
+                if (fstatat(dirFd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) continue;
+                type = S_ISDIR(st.st_mode) ? DT_DIR : S_ISREG(st.st_mode) ? DT_REG : DT_UNKNOWN;
+            }
+            if (type == DT_DIR || (type == DT_REG && is_emoji_font_name(de->d_name))) {
+                entries.emplace_back(de->d_name, type);
+            }
+        }
     }
+
     int replaced = 0;
-    for (dirent* de = readdir(dir.get()); de != nullptr; de = readdir(dir.get())) {
-        const char* name = de->d_name;
-        if (!strcmp(name, ".") || !strcmp(name, "..")) continue;
-        if (de->d_type == DT_DIR) {
-            unique_fd sub(openat(dirFd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    for (const auto& [name, type] : entries) {
+        if (type == DT_DIR) {
+            unique_fd sub(openat(dirFd, name.c_str(),
+                                 O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
             if (sub.ok()) replaced += replace_emoji_fonts_in_dir(sub.get(), uid, srcFd, depth + 1);
-        } else if (de->d_type == DT_REG && is_emoji_font_name(name)) {
-            // O_NONBLOCK: a FIFO swapped in after readdir must not hang installd.
-            unique_fd fd(openat(dirFd, name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC));
-            struct stat st;
-            if (!fd.ok() || fstat(fd.get(), &st) < 0 || !S_ISREG(st.st_mode) || st.st_uid != uid) {
-                continue;
-            }
-            if (write_font_file(dirFd, name, srcFd, st.st_uid, st.st_gid, st.st_mode & 07777,
-                                fd.get())) {
-                replaced++;
-            } else {
-                PLOG(WARNING) << "Failed to replace emoji font " << name;
-            }
+            continue;
+        }
+        // O_NONBLOCK: a FIFO swapped in after readdir must not hang installd.
+        unique_fd fd(openat(dirFd, name.c_str(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC));
+        struct stat st;
+        if (!fd.ok() || fstat(fd.get(), &st) < 0 || !S_ISREG(st.st_mode) || st.st_uid != uid) {
+            continue;
+        }
+        // Permission bits only; never carry setuid/setgid/sticky over.
+        if (write_font_file(dirFd, name, srcFd, st.st_uid, st.st_gid, st.st_mode & 0777,
+                            fd.get())) {
+            replaced++;
+        } else {
+            PLOG(WARNING) << "Failed to replace emoji font " << name;
         }
     }
     return replaced;
 }
 
-// root-owned and read-only, so the app can't rewrite it with a freshly downloaded font.
+// root-owned and read-only, so the app can't rewrite it in place with a downloaded font.
 static bool lock_emoji_font(int parentFd, const std::string& name, uid_t uid, int srcFd) {
     struct stat st;
     if (fstatat(parentFd, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) == 0 && !S_ISREG(st.st_mode)) {
+        errno = EEXIST;
         return false;
     }
     return write_font_file(parentFd, name, srcFd, AID_ROOT, uid, 0444, parentFd);
@@ -1484,13 +1512,30 @@ binder::Status InstalldNativeService::replaceAppEmojiFonts(
     ENFORCE_VALID_USER(userId);
     CHECK_ARGUMENT_UUID(uuid);
     CHECK_ARGUMENT_PACKAGE_NAME(packageName);
+    // Only ordinary apps: system-uid data dirs are never touched.
+    CHECK_ARGUMENT_APP_ID(appId);
+    *_aidl_return = 0;
+
+    // Validate everything before writing anything, so a bad call changes nothing.
+    std::vector<std::vector<std::string>> lockedParts;
+    for (const auto& lockedFile : lockedFiles) {
+        std::vector<std::string> parts = split_app_relative_path(lockedFile);
+        if (parts.empty()) {
+            return exception(binder::Status::EX_ILLEGAL_ARGUMENT, "Bad path " + lockedFile);
+        }
+        lockedParts.push_back(std::move(parts));
+    }
+    const int srcFd = fontFd.get();
+    struct stat srcSt;
+    if (srcFd < 0 || fstat(srcFd, &srcSt) < 0 || !S_ISREG(srcSt.st_mode) || srcSt.st_size == 0) {
+        return exception(binder::Status::EX_ILLEGAL_ARGUMENT, "Font fd is not a regular file");
+    }
+
     LOCK_PACKAGE_USER();
 
     const char* uuid_ = uuid ? uuid->c_str() : nullptr;
     const char* pkgname = packageName.c_str();
     const uid_t uid = multiuser_get_uid(userId, appId);
-    const int srcFd = fontFd.get();
-    *_aidl_return = 0;
 
     const std::string cePath = create_data_user_ce_package_path(uuid_, userId, pkgname);
     const std::string dePath = create_data_user_de_package_path(uuid_, userId, pkgname);
@@ -1500,18 +1545,16 @@ binder::Status InstalldNativeService::replaceAppEmojiFonts(
     if (deFd.ok()) *_aidl_return += replace_emoji_fonts_in_dir(deFd.get(), uid, srcFd, 0);
     if (!ceFd.ok()) return ok();
 
-    for (const auto& lockedFile : lockedFiles) {
-        std::vector<std::string> parts = split_app_relative_path(lockedFile);
-        if (parts.empty()) {
-            return exception(binder::Status::EX_ILLEGAL_ARGUMENT, "Bad path " + lockedFile);
-        }
+    for (size_t i = 0; i < lockedParts.size(); i++) {
+        std::vector<std::string> parts = lockedParts[i];
         std::string name = parts.back();
         parts.pop_back();
         unique_fd parentFd = open_app_subdir(ceFd.get(), parts, uid, /*create=*/true);
         if (parentFd.ok() && lock_emoji_font(parentFd.get(), name, uid, srcFd)) {
             (*_aidl_return)++;
         } else {
-            PLOG(WARNING) << "Failed to lock emoji font " << lockedFile << " of " << packageName;
+            PLOG(WARNING) << "Failed to lock emoji font " << lockedFiles[i] << " of "
+                          << packageName;
         }
     }
     return ok();
@@ -1526,7 +1569,7 @@ binder::Status InstalldNativeService::clearAppDataSubdir(const std::optional<std
     ENFORCE_VALID_USER(userId);
     CHECK_ARGUMENT_UUID(uuid);
     CHECK_ARGUMENT_PACKAGE_NAME(packageName);
-    LOCK_PACKAGE_USER();
+    CHECK_ARGUMENT_APP_ID(appId);
 
     std::vector<std::string> parts = split_app_relative_path(relativePath);
     if (parts.empty()) {
@@ -1534,6 +1577,8 @@ binder::Status InstalldNativeService::clearAppDataSubdir(const std::optional<std
     }
     std::string name = parts.back();
     parts.pop_back();
+
+    LOCK_PACKAGE_USER();
 
     const char* uuid_ = uuid ? uuid->c_str() : nullptr;
     const uid_t uid = multiuser_get_uid(userId, appId);
@@ -1560,8 +1605,22 @@ binder::Status InstalldNativeService::clearAppDataSubdir(const std::optional<std
         targetFd = make_app_dir(parentFd.get(), name, uid);
         if (!targetFd.ok()) return error("Failed to create " + relativePath);
     }
-    if (block && fchmod(targetFd.get(), 0) < 0) {
-        return error("Failed to block " + relativePath);
+
+    if (block) {
+        // root-owned 000: the app owns the dir otherwise and could simply chmod it back.
+        if (fchown(targetFd.get(), AID_ROOT, AID_ROOT) < 0 || fchmod(targetFd.get(), 0) < 0) {
+            return error("Failed to block " + relativePath);
+        }
+        return ok();
+    }
+
+    // Unblocking: hand a dir blocked by an earlier call back to the app.
+    struct stat st;
+    if (fstat(targetFd.get(), &st) < 0) return error("Failed to stat " + relativePath);
+    if (st.st_uid == AID_ROOT && (st.st_mode & 0777) == 0) {
+        if (fchown(targetFd.get(), uid, uid) < 0 || fchmod(targetFd.get(), 0700) < 0) {
+            return error("Failed to unblock " + relativePath);
+        }
     }
     return ok();
 }
