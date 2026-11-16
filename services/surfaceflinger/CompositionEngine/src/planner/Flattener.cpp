@@ -365,8 +365,9 @@ bool Flattener::mergeWithCachedSets(const std::vector<const LayerState*>& layers
                 ++incomingLayerIter;
             }
             priorBlurLayer = currentLayerIter->getBlurLayer();
-        } else if (currentLayerIter->getLayerCount() > 1) {
-            // Break the current layer into its constituent layers
+        } else if (currentLayerIter->getLayerCount() > 1 || currentLayerIter->getBuffer()) {
+            // Break the current layer into its constituent layers. A flattened single-layer set
+            // (blur/hole punch) must drop its stale render too.
             for (CachedSet& layer : currentLayerIter->decompose()) {
                 bool disableBlur =
                         priorBlurLayer && priorBlurLayer == (*incomingLayerIter)->getOutputLayer();
