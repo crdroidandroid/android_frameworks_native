@@ -782,6 +782,67 @@ TEST_F(FlattenerTest, flattenLayers_holePunchSingleLayer) {
     EXPECT_EQ(nullptr, peekThroughLayer1);
 }
 
+TEST_F(FlattenerTest, flattenLayers_holePunchSingleLayer_bufferUpdateDropsStaleRender) {
+    mTestLayers[0]->outputLayerCompositionState.displayFrame = Rect(0, 0, 5, 5);
+
+    // An opaque static background
+    auto& layerState0 = mTestLayers[0]->layerState;
+    const auto& overrideBuffer0 = layerState0->getOutputLayer()->getState().overrideInfo.buffer;
+
+    // a rounded updating layer
+    auto& layerState1 = mTestLayers[1]->layerState;
+    mTestLayers[1]->layerFECompositionState.blendMode = hal::BlendMode::NONE;
+
+    EXPECT_CALL(*mTestLayers[1]->layerFE, hasRoundedCorners()).WillRepeatedly(Return(true));
+
+    std::optional<LayerFE::LayerSettings> clientComposition;
+    clientComposition.emplace();
+    clientComposition->source.buffer.buffer = std::make_shared<
+            renderengine::impl::ExternalTexture>(mTestLayers[1]->layerFECompositionState.buffer,
+                                                 mRenderEngine,
+                                                 renderengine::impl::ExternalTexture::Usage::
+                                                         READABLE);
+    EXPECT_CALL(*mTestLayers[1]->layerFE, prepareClientComposition(_))
+            .WillOnce(Return(clientComposition));
+
+    const std::vector<const LayerState*> layers = {
+            layerState0.get(),
+            layerState1.get(),
+    };
+
+    initializeFlattener(layers);
+
+    mTime += 200ms;
+    layerState1->resetFramesSinceBufferUpdate(); // it is updating
+
+    // Render a single-layer CachedSet of layer 0 (hole punch exception).
+    initializeOverrideBuffer(layers);
+    mFlattener->flattenLayers(layers, getNonBufferHash(layers), mTime);
+    EXPECT_CALL(mRenderEngine, drawLayers(_, _, _, _))
+            .WillOnce(Return(ByMove(ftl::yield<FenceResult>(Fence::NO_FENCE))));
+    mFlattener->renderCachedSets(mOutputState, std::nullopt, true);
+
+    // Merge it in.
+    initializeOverrideBuffer(layers);
+    mFlattener->flattenLayers(layers, getNonBufferHash(layers), mTime);
+    EXPECT_NE(nullptr, overrideBuffer0);
+
+    // Layer 0 gets a new buffer, so its cached render is stale.
+    EXPECT_CALL(mRenderEngine, drawLayers(_, _, _, _)).Times(0);
+    layerState0->resetFramesSinceBufferUpdate();
+    initializeOverrideBuffer(layers);
+    mFlattener->flattenLayers(layers, getNonBufferHash(layers), mTime);
+    mFlattener->renderCachedSets(mOutputState, std::nullopt, true);
+    EXPECT_EQ(nullptr, overrideBuffer0);
+
+    // Next frame with no new buffer for layer 0: the stale render must not come back.
+    layerState0->incrementFramesSinceBufferUpdate();
+    initializeOverrideBuffer(layers);
+    mFlattener->flattenLayers(layers, getNonBufferHash(layers), mTime);
+    mFlattener->renderCachedSets(mOutputState, std::nullopt, true);
+    EXPECT_EQ(nullptr, overrideBuffer0);
+}
+
 TEST_F(FlattenerTest, flattenLayers_holePunchSingleColorLayer) {
     mTestLayers[0]->outputLayerCompositionState.displayFrame = Rect(0, 0, 5, 5);
     mTestLayers[0]->layerFECompositionState.color = half4(255.f, 0.f, 0.f, 255.f);
