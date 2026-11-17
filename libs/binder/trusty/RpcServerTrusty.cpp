@@ -66,12 +66,19 @@ sp<RpcServerTrusty> RpcServerTrusty::make(
     return srv;
 }
 
+RpcServerTrusty::~RpcServerTrusty() {
+    if (mTipcPortCtx != nullptr) {
+        tipc_remove_service(mTipcPortCtx);
+    }
+}
+
 RpcServerTrusty::RpcServerTrusty(std::unique_ptr<RpcTransportCtx> ctx, std::string&& portName,
                                  std::shared_ptr<const PortAcl>&& portAcl, size_t msgMaxSize,
                                  size_t msgQueueLen)
       : mRpcServer(makeRpcServer(std::move(ctx))),
         mPortName(std::move(portName)),
-        mPortAcl(std::move(portAcl)) {
+        mPortAcl(std::move(portAcl)),
+        mTipcPortCtx(nullptr) {
     mTipcPort.name = mPortName.c_str();
     mTipcPort.msg_max_size = msgMaxSize;
     mTipcPort.msg_queue_len = msgQueueLen;
@@ -213,7 +220,8 @@ int RpcServerTrusty::handleConnectInternal(RpcServer* rpcServer, handle_t chan,
     rpcServer->mConnectingThreads[rpc_this_thread::get_id()] = RpcMaybeThread();
 
     int rc = NO_ERROR;
-    auto joinFn = [&](sp<RpcSession>&& session, RpcSession::PreJoinSetupResult&& result) {
+    auto setupChannelContext = [&](sp<RpcSession>&& session,
+                                   RpcSession::PreJoinSetupResult&& result, bool isIncoming) {
         if (result.status != OK) {
             rc = statusToTrusty(result.status);
             return;
@@ -228,8 +236,17 @@ int RpcServerTrusty::handleConnectInternal(RpcServer* rpcServer, handle_t chan,
 
         channelContext->session = std::move(session);
         channelContext->connection = std::move(result.connection);
+        channelContext->isIncoming = isIncoming;
 
         *ctx_p = channelContext;
+    };
+
+    auto joinFn = [&](sp<RpcSession>&& session, RpcSession::PreJoinSetupResult&& result) {
+        setupChannelContext(std::move(session), std::move(result), true);
+    };
+
+    auto incomingSetupFn = [&](sp<RpcSession>&& session, RpcSession::PreJoinSetupResult&& result) {
+        setupChannelContext(std::move(session), std::move(result), false);
     };
 
     // We need to duplicate the channel handle here because the tipc library
@@ -249,7 +266,7 @@ int RpcServerTrusty::handleConnectInternal(RpcServer* rpcServer, handle_t chan,
     }
     memcpy(addr.data(), &peer, peer_len);
     RpcServer::establishConnection(sp<RpcServer>::fromExisting(rpcServer), std::move(transportFd),
-                                   addr, peer_len, joinFn);
+                                   addr, peer_len, joinFn, incomingSetupFn);
 
     return rc;
 }
@@ -284,9 +301,6 @@ void RpcServerTrusty::handleDisconnect(const tipc_port* /*port*/, handle_t /*cha
 void RpcServerTrusty::handleDisconnectInternal(void* ctx) {
     auto* channelContext = reinterpret_cast<ChannelContext*>(ctx);
     if (channelContext == nullptr) {
-        // Connections marked "incoming" (outgoing from the server's side)
-        // do not have a valid channel context because joinFn does not get
-        // called for them. We ignore them here.
         return;
     }
 
@@ -300,10 +314,11 @@ void RpcServerTrusty::handleChannelCleanup(void* ctx) {
         return;
     }
 
-    auto& session = channelContext->session;
-    auto& connection = channelContext->connection;
-    LOG_ALWAYS_FATAL_IF(!session->removeIncomingConnection(connection),
-                        "bad state: connection object guaranteed to be in list");
+    if (channelContext->isIncoming) {
+        LOG_ALWAYS_FATAL_IF(!channelContext->session->removeIncomingConnection(
+                                    channelContext->connection),
+                            "bad state: connection object guaranteed to be in list");
+    }
 
     delete channelContext;
 }
