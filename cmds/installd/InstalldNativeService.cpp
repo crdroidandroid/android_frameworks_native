@@ -1441,10 +1441,8 @@ static unique_fd open_app_subdir(int baseFd, const std::vector<std::string>& par
 
 static constexpr int kMaxEmojiFontDepth = 16;
 
-// The app's owner, mode and label are carried over to the new file.
-static int replace_emoji_fonts_in_dir(int dirFd, uid_t uid, int srcFd, int depth) {
-    if (depth > kMaxEmojiFontDepth) return 0;
-
+// Subdirectories, and regular files that look like an emoji font, directly inside dirFd.
+static std::vector<std::pair<std::string, unsigned char>> list_emoji_font_entries(int dirFd) {
     std::vector<std::pair<std::string, unsigned char>> entries;
     {
         int listFd = fcntl(dirFd, F_DUPFD_CLOEXEC, 0);
@@ -1452,7 +1450,7 @@ static int replace_emoji_fonts_in_dir(int dirFd, uid_t uid, int srcFd, int depth
                                                       closedir);
         if (!dir) {
             if (listFd >= 0) close(listFd);
-            return 0;
+            return entries;
         }
         for (dirent* de = readdir(dir.get()); de != nullptr; de = readdir(dir.get())) {
             if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
@@ -1468,6 +1466,14 @@ static int replace_emoji_fonts_in_dir(int dirFd, uid_t uid, int srcFd, int depth
             }
         }
     }
+    return entries;
+}
+
+// The app's owner, mode and label are carried over to the new file.
+static int replace_emoji_fonts_in_dir(int dirFd, uid_t uid, int srcFd, int depth) {
+    if (depth > kMaxEmojiFontDepth) return 0;
+
+    auto entries = list_emoji_font_entries(dirFd);
 
     int replaced = 0;
     for (const auto& [name, type] : entries) {
@@ -1492,6 +1498,34 @@ static int replace_emoji_fonts_in_dir(int dirFd, uid_t uid, int srcFd, int depth
         }
     }
     return replaced;
+}
+
+// Undoes replace_emoji_fonts_in_dir: the app fetches or unpacks its own font again.
+static int remove_emoji_fonts_in_dir(int dirFd, uid_t uid, int depth) {
+    if (depth > kMaxEmojiFontDepth) return 0;
+
+    auto entries = list_emoji_font_entries(dirFd);
+
+    int removed = 0;
+    for (const auto& [name, type] : entries) {
+        if (type == DT_DIR) {
+            unique_fd sub(openat(dirFd, name.c_str(),
+                                 O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+            if (sub.ok()) removed += remove_emoji_fonts_in_dir(sub.get(), uid, depth + 1);
+            continue;
+        }
+        struct stat st;
+        if (fstatat(dirFd, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) < 0 || !S_ISREG(st.st_mode) ||
+            st.st_uid != uid) {
+            continue;
+        }
+        if (unlinkat(dirFd, name.c_str(), 0) == 0) {
+            removed++;
+        } else {
+            PLOG(WARNING) << "Failed to remove emoji font " << name;
+        }
+    }
+    return removed;
 }
 
 // root-owned and read-only, so the app can't rewrite it in place with a downloaded font.
@@ -1554,6 +1588,63 @@ binder::Status InstalldNativeService::replaceAppEmojiFonts(
             (*_aidl_return)++;
         } else {
             PLOG(WARNING) << "Failed to lock emoji font " << lockedFiles[i] << " of "
+                          << packageName;
+        }
+    }
+    return ok();
+}
+
+binder::Status InstalldNativeService::removeAppEmojiFonts(
+        const std::optional<std::string>& uuid, const std::string& packageName, int32_t userId,
+        int32_t appId, const std::vector<std::string>& lockedFiles, int32_t* _aidl_return) {
+    ENFORCE_UID(AID_SYSTEM);
+    ENFORCE_VALID_USER(userId);
+    CHECK_ARGUMENT_UUID(uuid);
+    CHECK_ARGUMENT_PACKAGE_NAME(packageName);
+    // Only ordinary apps: system-uid data dirs are never touched.
+    CHECK_ARGUMENT_APP_ID(appId);
+    *_aidl_return = 0;
+
+    std::vector<std::vector<std::string>> lockedParts;
+    for (const auto& lockedFile : lockedFiles) {
+        std::vector<std::string> parts = split_app_relative_path(lockedFile);
+        if (parts.empty()) {
+            return exception(binder::Status::EX_ILLEGAL_ARGUMENT, "Bad path " + lockedFile);
+        }
+        lockedParts.push_back(std::move(parts));
+    }
+
+    LOCK_PACKAGE_USER();
+
+    const char* uuid_ = uuid ? uuid->c_str() : nullptr;
+    const char* pkgname = packageName.c_str();
+    const uid_t uid = multiuser_get_uid(userId, appId);
+
+    const std::string cePath = create_data_user_ce_package_path(uuid_, userId, pkgname);
+    const std::string dePath = create_data_user_de_package_path(uuid_, userId, pkgname);
+    unique_fd ceFd(open(cePath.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    unique_fd deFd(open(dePath.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    if (ceFd.ok()) *_aidl_return += remove_emoji_fonts_in_dir(ceFd.get(), uid, 0);
+    if (deFd.ok()) *_aidl_return += remove_emoji_fonts_in_dir(deFd.get(), uid, 0);
+    if (!ceFd.ok()) return ok();
+
+    // The root-owned copies made by lock_emoji_font. Only a root-owned regular file is removed,
+    // so a file the app wrote itself afterwards is left alone.
+    for (size_t i = 0; i < lockedParts.size(); i++) {
+        std::vector<std::string> parts = lockedParts[i];
+        std::string name = parts.back();
+        parts.pop_back();
+        unique_fd parentFd = open_app_subdir(ceFd.get(), parts, uid, /*create=*/false);
+        if (!parentFd.ok()) continue;
+        struct stat st;
+        if (fstatat(parentFd.get(), name.c_str(), &st, AT_SYMLINK_NOFOLLOW) < 0 ||
+            !S_ISREG(st.st_mode) || st.st_uid != AID_ROOT) {
+            continue;
+        }
+        if (unlinkat(parentFd.get(), name.c_str(), 0) == 0) {
+            (*_aidl_return)++;
+        } else {
+            PLOG(WARNING) << "Failed to unlock emoji font " << lockedFiles[i] << " of "
                           << packageName;
         }
     }

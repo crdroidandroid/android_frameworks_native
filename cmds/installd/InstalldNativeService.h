@@ -103,6 +103,10 @@ public:
                                         const android::os::ParcelFileDescriptor& fontFd,
                                         const std::vector<std::string>& lockedFiles,
                                         int32_t* _aidl_return);
+    binder::Status removeAppEmojiFonts(const std::optional<std::string>& uuid,
+                                       const std::string& packageName, int32_t userId,
+                                       int32_t appId, const std::vector<std::string>& lockedFiles,
+                                       int32_t* _aidl_return);
     binder::Status clearAppDataSubdir(const std::optional<std::string>& uuid,
                                       const std::string& packageName, int32_t userId,
                                       int32_t appId, const std::string& relativePath,

@@ -214,6 +214,14 @@ interface IInstalld {
             in @utf8InCpp String[] lockedFiles);
 
     /**
+     * Undoes replaceAppEmojiFonts: deletes every *emoji*.ttf the app owns in its CE and DE data,
+     * and each of lockedFiles (paths relative to the CE data dir) when it is a root-owned file,
+     * so the app fetches its own emoji font again. Returns the number of files removed.
+     */
+    int removeAppEmojiFonts(@nullable @utf8InCpp String uuid, @utf8InCpp String packageName,
+            int userId, int appId, in @utf8InCpp String[] lockedFiles);
+
+    /**
      * Empties a directory relative to the app's CE data dir. With block, the directory is
      * created if missing and left root-owned mode 000 so the app can't write into it. Without
      * block, a directory blocked this way is handed back to the app.
